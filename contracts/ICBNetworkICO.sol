@@ -7,12 +7,12 @@ contract ICBNetworkICO{
     ICBNetworkPrivateSale _privateSale;
     ICBNetworkPreSale _one_presale;
     ICBNetworkPreSale _two_presale;
-    ICBNetworkPublicSale _public_sale
+    ICBNetworkPublicSale _public_sale;
 
 
 
     constructor(){
-        // init all sales;
+      
     }
 
     
