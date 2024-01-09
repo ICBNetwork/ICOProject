@@ -11,10 +11,8 @@ contract ICB_ICO is ReentrancyGuard {
     address public funderAddress;
     address public usdtTokenAddress;
     address public usdcTokenAddress;
-    address public nativeAggreator;
-    AggregatorV3Interface internal priceFeed =
-        AggregatorV3Interface(nativeAggreator);
- 
+    AggregatorV3Interface internal priceFeed;
+       
     uint256 public saleStartTime;
     uint256 public saleEndTime;
     uint256 public totalSoldInPrivateSale; // for storing the private sale ICB amount
@@ -125,8 +123,8 @@ contract ICB_ICO is ReentrancyGuard {
         funderAddress = funderWallet;
         usdtTokenAddress = usdtAddress;
         usdcTokenAddress = usdcAddress;
-        nativeAggreator = nativeAggreators;
-        tokenDecimal = tokenDecimals;       
+        tokenDecimal = tokenDecimals; 
+        priceFeed = AggregatorV3Interface(nativeAggreators);      
     }
 
     /**** OnlyOwner ****/
@@ -223,7 +221,7 @@ contract ICB_ICO is ReentrancyGuard {
         uint256 icbDollar = packages[packageAmount].icbPerDollar;
         if(BuyType.eth == buyType){
             int256 liveprice = getNativePrice() * 10 ** 10;
-            // int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
+            // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * 10**7 ) / icbDollar;
@@ -243,7 +241,7 @@ contract ICB_ICO is ReentrancyGuard {
         icbDollarInPrePublic = calPerDayIcbDollar();
         if(BuyType.eth == buyType){
             int256 liveprice = getNativePrice() * 10 ** 10;
-            // int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
+            // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * 10**7) / icbDollarInPrePublic;
