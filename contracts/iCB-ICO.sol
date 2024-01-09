@@ -222,8 +222,8 @@ contract ICB_ICO is ReentrancyGuard {
     function estimatePrivateFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
         uint256 icbDollar = packages[packageAmount].icbPerDollar;
         if(BuyType.eth == buyType){
-            // int256 liveprice = getNativePrice() * 10 ** 10;
-            int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
+            int256 liveprice = getNativePrice() * 10 ** 10;
+            // int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * 10**7 ) / icbDollar;
@@ -242,8 +242,8 @@ contract ICB_ICO is ReentrancyGuard {
     function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public returns(uint256, uint256){
         icbDollarInPrePublic = calPerDayIcbDollar();
         if(BuyType.eth == buyType){
-            // int256 liveprice = getNativePrice() * 10 ** 10;
-            int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
+            int256 liveprice = getNativePrice() * 10 ** 10;
+            // int256 liveprice = 223512014065 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * 10**7) / icbDollarInPrePublic;
