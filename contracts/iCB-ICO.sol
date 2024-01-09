@@ -57,7 +57,7 @@ contract ICB_ICO is ReentrancyGuard {
     }
 
     mapping(uint256 => Package) public packages; // PackAmount => Package
-    mapping(address => UserDeposit[]) public userDeposits; // userAddress => UserDeposit
+    mapping(address => UserDeposit[]) private userDeposits; // userAddress => UserDeposit
     mapping(address => uint256) public userReferralReward; // userAddress => rewardAmount
 
     event FundTransfer(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, uint256 investTime, uint256 lockMonthTime, uint256 linearVestingTime);
@@ -169,6 +169,7 @@ contract ICB_ICO is ReentrancyGuard {
         saleEndTime = saleEnd;
         lockMonth = lockMonths;
         vestingMonth = vestingMonths;
+        getTimestampOfNextDate();
         emit ConfigPrePublicSale(setSaletype, salePriceInDollar, everyDayIncreasePrice, saleStart, saleEnd, lockMonths, vestingMonths);
         return true;
     }
@@ -237,8 +238,7 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @notice To calculate the estimate fund for token and icb 
     /// @param packageAmount The exact package amount which is set for private sale
-    function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public returns(uint256, uint256){
-        icbDollarInPrePublic = calPerDayIcbDollar();
+    function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
         if(BuyType.eth == buyType){
             int256 liveprice = getNativePrice() * 10 ** 10;
             // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
@@ -291,6 +291,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param tokenAddress The token address from which user can buy
     /// @param currentSalePhase The current sale phase
     function payWithTokenInPresale(uint256 packageAmount, address tokenAddress, SaleType currentSalePhase) external nonReentrant tokenCheck(tokenAddress) preSalesCheck returns(bool){
+
         Package memory p = packages[packageAmount];
         uint256 estimatedToken;
         uint256 icbAmount;
@@ -305,6 +306,7 @@ contract ICB_ICO is ReentrancyGuard {
         if(SaleType.preSale2 == currentSalePhase){
             totalSoldInPreSale2 += icbAmount;           
         }
+        calPerDayIcbDollar();
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
         emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockTime , vestingTime);
         return true;
@@ -329,6 +331,7 @@ contract ICB_ICO is ReentrancyGuard {
         if(SaleType.preSale2 == currentSalePhase){
             totalSoldInPreSale2 += icbAmount;           
         }
+        calPerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
         emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockTime , vestingTime);
 
@@ -360,7 +363,8 @@ contract ICB_ICO is ReentrancyGuard {
             exactBuyerIcbAmt = icbAmount;
             internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime);
         }
-        totalSoldInPublicSale += icbAmount;     
+        totalSoldInPublicSale += icbAmount; 
+        calPerDayIcbDollar();    
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
         emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockTime , vestingTime);
         return true;
@@ -389,6 +393,7 @@ contract ICB_ICO is ReentrancyGuard {
             internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime);
         }
         totalSoldInPublicSale += icbAmount;
+        calPerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
         emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockTime , vestingTime);
 
@@ -408,18 +413,16 @@ contract ICB_ICO is ReentrancyGuard {
         userDeposits[userAddress].push(UserDeposit(packageAmount, userIcbAmount, icbInDollar, investTime, lockMonthTime, linearVestingTime));
     }
 
-    function getTimestampOfNextDate() internal  returns (uint256) {
+    function getTimestampOfNextDate() internal {
         nextDateTimestamp = (block.timestamp / 1 days + 1) * 1 days;
-        return nextDateTimestamp;
+    
     }
 
-    function calPerDayIcbDollar() public returns(uint256){   
-        getTimestampOfNextDate();
-        if(nextDateTimestamp < block.timestamp) {
+    function calPerDayIcbDollar() public{   
+        if(nextDateTimestamp <= block.timestamp) {
             icbDollarInPrePublic += incrementPriceEveryDay;
-            nextDateTimestamp = getTimestampOfNextDate();
+            getTimestampOfNextDate();
         }
-        return icbDollarInPrePublic; // for now I am returning the state variable
     }
 
     function calUserLockAndVestingTime(uint256 packageAmount) internal view returns(uint8, uint8){
