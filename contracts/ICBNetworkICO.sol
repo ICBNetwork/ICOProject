@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import './ICBNetworkPrivateSale.sol';
 import './ICBNetworkPublicSale.sol';
 import './ICBNetworkPreSale.sol';
+
 contract ICBNetworkICO{
     ICBNetworkPrivateSale public _privateSale;
     ICBNetworkPreSale _one_presale;
