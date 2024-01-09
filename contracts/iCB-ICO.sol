@@ -439,7 +439,7 @@ contract ICB_ICO is ReentrancyGuard {
         if(packageAmount >= 30000){
             return (p.lockMonthTime, p.linearVestingTime);
         }
-        return (lockMonth, lockMonth);  // this is fixed because in pre/public sale lock and vesting time
+        return (lockMonth, vestingMonth);  // this is fixed because in pre/public sale lock and vesting time
     }
 
     function isContract(address account) internal view returns (bool) {
