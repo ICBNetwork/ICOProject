@@ -24,7 +24,7 @@ contract ICB_ICO is ReentrancyGuard {
     uint256 public incrementPriceEveryDay; // code is configure like 100 == 0.00001 , 1000 == 0.0001
     uint8 public lockMonth; // We are storing this for pre(1,2) and public sale
     uint8 public vestingMonth; // We are storing this for pre(1,2) and public sale
-    uint8 public tokenDecimal;
+    uint8 public tokenDecimal; 
 
     enum BuyType {
         eth,
@@ -398,7 +398,7 @@ contract ICB_ICO is ReentrancyGuard {
         emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockTime , vestingTime);
 
         return true;
-    }
+    }   
     
     /// @notice To get the user invest details
     /// @param userAddress The user address from which we need the details
@@ -439,7 +439,7 @@ contract ICB_ICO is ReentrancyGuard {
         if(packageAmount >= 30000){
             return (p.lockMonthTime, p.linearVestingTime);
         }
-        return (6,12);  // this is fixed because in pre/public sale lock and vesting time
+        return (lockMonth, lockMonth);  // this is fixed because in pre/public sale lock and vesting time
     }
 
     function isContract(address account) internal view returns (bool) {
