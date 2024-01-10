@@ -6,26 +6,37 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract ICB_ICO is ReentrancyGuard {
-
+    
+    // comman variable in(private, preSale1, preSale2, public) sales
     address public owner;
     address public funderAddress;
     address public usdtTokenAddress;
     address public usdcTokenAddress;
     AggregatorV3Interface internal priceFeed;
-       
     uint256 public saleStartTime;
     uint256 public saleEndTime;
+    uint256 public baseMultiplier;
+    uint8 public tokenDecimal; 
+
+    // private sale variable
     uint256 public totalSoldInPrivateSale; // for storing the private sale ICB amount
+
+    // preSale1 variable
     uint256 public totalSoldInPreSale1; // for storing the presale sale 1 ICB amount
+
+    // preSale2 variable
     uint256 public totalSoldInPreSale2; // for storing the presale sale 2 ICB amount
+
+    // public sale variable
     uint256 public totalSoldInPublicSale; // for storing the public sale ICB amount
+
+    // comman variable in(preSale1, preSale2, and private) sales
     uint256 public nextDateTimestamp;
     uint256 public icbDollarInPrePublic; // This price will update per day basic
     uint256 public incrementPriceEveryDay; // code is configure like 100 == 0.00001 , 1000 == 0.0001
     uint8 public lockMonth; // We are storing this for pre(1,2) and public sale
     uint8 public vestingMonth; // We are storing this for pre(1,2) and public sale
-    uint8 public tokenDecimal; 
-
+    
     enum BuyType {
         eth,
         token
@@ -54,18 +65,17 @@ contract ICB_ICO is ReentrancyGuard {
         uint256 investTime;      // user invest time
         uint8 lockMonthTime;     // user lock time
         uint8 linearVestingTime; // user linear vesting time
-        SaleType saleType;       // store sale type
-
+        SaleType saleType;       // store sale phase type
     }
 
     mapping(uint256 => Package) public packages; // PackAmount => Package
     mapping(address => UserDeposit[]) private userDeposits; // userAddress => UserDeposit
     mapping(address => uint256) public userReferralReward; // userAddress => rewardAmount
+    mapping(address => bool) public icbInvestors;
 
-    event FundTransfer(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, uint256 investTime, uint256 lockMonthTime, uint256 linearVestingTime);
-    event ConfigPrivateSale(SaleType setSaletype, uint256 saleStart, uint256 saleEnd);
+    event FundTransfer(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, uint256 investTime, uint256 lockMonthTime, uint256 linearVestingTime, SaleType currentSalePhase);
     event ConfigPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths);
-    event AddPackage(uint256 packageAmount, uint256 icbPerDollar, uint8 lockMonthTime, uint8 linearVestingTime);
+    event UpdateLockAndVestingMonth(uint8 lockMonths, uint8 vestingMonths);
 
     modifier onlyOwner() {
         require(owner == msg.sender, "You are not the Owner");
@@ -134,6 +144,7 @@ contract ICB_ICO is ReentrancyGuard {
         currentSaleType = setSaletype;
         saleStartTime = saleStart;
         saleEndTime = saleEnd;
+        baseMultiplier = 10_000_000;
         addPackage(1000, 2000, 6, 6);
         addPackage(5000, 1800, 6, 3);
         addPackage(10000, 1500, 3, 3);
@@ -148,6 +159,15 @@ contract ICB_ICO is ReentrancyGuard {
         internalDeposit(userAddress[i], packageAmount[i], userIcbAmount[i], icbInDollar[i], investTime[i], lockMonthTime[i], linearVestingTime[i], currentSaleTypes[i]);
         }
         return true;
+    }
+    
+    /// @notice To update the lock and vesting time by owner
+    /// @param lockMonths The lock month time which is going to use in pre1, pre2, and public sale
+    /// @param vestingMonths The vesting month time which is going to use in pre1, pre2, and public sale
+    function updateLockAndVestingMonth(uint8 lockMonths, uint8 vestingMonths) external onlyOwner {
+        lockMonth = lockMonths;
+        vestingMonth = vestingMonths;
+        emit UpdateLockAndVestingMonth(lockMonths, vestingMonths);
     }
 
     /// @notice To turn off/on the sale status
@@ -180,10 +200,10 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param lockMonthTime The lock month for the investment
     /// @param linearVestingTime The linear vesting month
     function addPackage(uint256 packageAmount, uint256 icbPerDollar, uint8 lockMonthTime, uint8 linearVestingTime) internal {
-        Package storage myPackage = packages[packageAmount];
-        myPackage.icbPerDollar = icbPerDollar;
-        myPackage.lockMonthTime = lockMonthTime;
-        myPackage.linearVestingTime = linearVestingTime;
+        Package storage privateSalePackage = packages[packageAmount];
+        privateSalePackage.icbPerDollar = icbPerDollar;
+        privateSalePackage.lockMonthTime = lockMonthTime;
+        privateSalePackage.linearVestingTime = linearVestingTime;
     }
 
     /// @notice This function is used for withdraw the token from contract if user pay via direct transfer
@@ -206,7 +226,7 @@ contract ICB_ICO is ReentrancyGuard {
        
     /**** Public Functions ****/
 
-    /// @dev Function to get the live eth price
+    /// @dev Function to get the live native token price
     function getNativePrice() public view returns (int256) {
         (, int256 price, , , ) = priceFeed.latestRoundData();
         return price;
@@ -223,12 +243,12 @@ contract ICB_ICO is ReentrancyGuard {
             int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
-            uint256 icbAmount = (packageAmount * 10**7 ) / icbDollar;
+            uint256 icbAmount = (packageAmount * baseMultiplier) / icbDollar;
             return (ethInDollar, icbAmount);
         }
         if(BuyType.token == buyType){
             uint256 tokenAmount = packageAmount * (10**tokenDecimal);
-            uint256 icbAmount = (packageAmount * 10**7) / icbDollar;
+            uint256 icbAmount = (packageAmount * baseMultiplier) / icbDollar;
             return (tokenAmount, icbAmount); 
         }
         return (0,0);    
@@ -238,16 +258,16 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param packageAmount The exact package amount which is set for private sale
     function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
         if(BuyType.eth == buyType){
-            // int256 liveprice = getNativePrice() * 10 ** 10;
-            int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
+            int256 liveprice = getNativePrice() * 10 ** 10;
+            // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
-            uint256 icbAmount = (packageAmount * 10**7) / icbDollarInPrePublic;
+            uint256 icbAmount = (packageAmount * baseMultiplier) / icbDollarInPrePublic;
             return (ethInDollar, icbAmount);
         }
         if(BuyType.token == buyType){
             uint256 tokenAmount = packageAmount * (10**tokenDecimal); 
-            uint256 icbAmount = (packageAmount * 10**7) / icbDollarInPrePublic;
+            uint256 icbAmount = (packageAmount * baseMultiplier) / icbDollarInPrePublic;
             return (tokenAmount, icbAmount); 
         }
         return (0,0);    
@@ -256,29 +276,31 @@ contract ICB_ICO is ReentrancyGuard {
     /// @notice This function used in private sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The exact package amount which is set for private sale
     /// @param tokenAddress The token address from which user can buy
-    function payWithTokenInPrivate(uint256 packageAmount, address tokenAddress) external nonReentrant privateSaleCheck tokenCheck(tokenAddress) packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
-        Package memory p = packages[packageAmount];
+    function payWithTokenInPrivate(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) privateSaleCheck tokenCheck(tokenAddress) packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
+        Package memory privateSalePackage = packages[packageAmount];
         uint256 estimatedToken;
         uint256 icbAmount;
-        (estimatedToken, icbAmount) = estimatePrivateFund(packageAmount, BuyType.token); // 6 for token decimal on ethereum both token having 6 decimal value
-        internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, p.lockMonthTime, p.linearVestingTime, currentSaleType);
-        totalSoldInPrivateSale += icbAmount;
+        (estimatedToken, icbAmount) = estimatePrivateFund(packageAmount, BuyType.token);
+        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        internalDeposit(msg.sender, packageAmount, icbAmount, privateSalePackage.icbPerDollar , block.timestamp, privateSalePackage.lockMonthTime, privateSalePackage.linearVestingTime, currentSaleType);
+        internalSalePhaseAmount(icbAmount);
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
+        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, privateSalePackage.lockMonthTime , privateSalePackage.linearVestingTime, currentSaleType);
         return true;
     }
 
     /// @notice This function used in private sale for buying the ICB using native token
     /// @param packageAmount The exact package amount which is set for private sale
-    function payWithNativeInPrivate(uint256 packageAmount) external payable nonReentrant privateSaleCheck packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
-        Package memory p = packages[packageAmount];
+    function payWithNativeInPrivate(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) privateSaleCheck packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
+        Package memory privateSalePackage = packages[packageAmount];
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimatePrivateFund(packageAmount, BuyType.eth);
         require(msg.value >= estimatedNative, "Insufficient Native value");
-        internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, p.lockMonthTime, p.linearVestingTime, currentSaleType);
-        totalSoldInPrivateSale += icbAmount;
+        internalDeposit(msg.sender, packageAmount, icbAmount, privateSalePackage.icbPerDollar , block.timestamp, privateSalePackage.lockMonthTime, privateSalePackage.linearVestingTime, currentSaleType);
+        internalSalePhaseAmount(icbAmount);
         payable(funderAddress).transfer(estimatedNative);
-        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, p.lockMonthTime , p.linearVestingTime);
+        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, privateSalePackage.lockMonthTime , privateSalePackage.linearVestingTime, currentSaleType);
         return true;
     }
 
@@ -287,52 +309,31 @@ contract ICB_ICO is ReentrancyGuard {
     /// @notice This function used in private sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The packageAmount in usd 
     /// @param tokenAddress The token address from which user can buy
-    /// @param currentSalePhase The current sale phase
-    function payWithTokenInPresale(uint256 packageAmount, address tokenAddress, SaleType currentSalePhase) external nonReentrant tokenCheck(tokenAddress) preSalesCheck returns(bool){
-
-        Package memory p = packages[packageAmount];
+    function payWithTokenInPresale(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) tokenCheck(tokenAddress) preSalesCheck returns(bool){
         uint256 estimatedToken;
         uint256 icbAmount;
-        uint8 lockTime;
-        uint8 vestingTime;
-        (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token); // 6 for token decimal on ethereum both token having 6 decimal value
-        (lockTime, vestingTime) = calUserLockAndVestingTime(packageAmount);
-        internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType);
-        if(SaleType.preSale1 == currentSalePhase){
-            totalSoldInPreSale1 += icbAmount;
-        }
-        if(SaleType.preSale2 == currentSalePhase){
-            totalSoldInPreSale2 += icbAmount;           
-        }
+        (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token);
+        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic , block.timestamp, lockMonth, vestingMonth, currentSaleType);
+        internalSalePhaseAmount(icbAmount);
         calPerDayIcbDollar();
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
-        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockTime , vestingTime);
+        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
     }
 
     /// @notice This function used in presale sale for buying the ICB using Native token
     /// @param packageAmount The packageAmount in usd 
-    /// @param currentSalePhase The current sale phase
-    function payWithNativeInPresale(uint256 packageAmount, SaleType currentSalePhase) external payable nonReentrant preSalesCheck returns(bool){
-        Package memory p = packages[packageAmount];
+    function payWithNativeInPresale(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) preSalesCheck returns(bool){
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.eth);
         require(msg.value >= estimatedNative, "Insufficient Native value");
-        uint8 lockTime;
-        uint8 vestingTime;
-        (lockTime, vestingTime) = calUserLockAndVestingTime(packageAmount);
-        internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType);
-        if(SaleType.preSale1 == currentSalePhase){
-            totalSoldInPreSale1 += icbAmount;
-        }
-        if(SaleType.preSale2 == currentSalePhase){
-            totalSoldInPreSale2 += icbAmount;           
-        }
+        internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
+        internalSalePhaseAmount(icbAmount);
         calPerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
-        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockTime , vestingTime);
-
+        emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
     }
 
@@ -340,61 +341,59 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @notice This function used in public sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The packageAmount in usd 
+    /// @param isReferral This is used to tell that user is paying with referralAddress if isReferral is true otherwise we are skiping this part in calculation
+    /// @param referralAddress The referral address which must be our investor ealier in any sale
     /// @param tokenAddress The token address from which user can buy
-    function payWithTokenInPublic(uint256 packageAmount, bool isReferral, address referalAddress, address tokenAddress) external nonReentrant publicSalesCheck tokenCheck(tokenAddress) returns(bool){
-        Package memory p = packages[packageAmount];
+    function payWithTokenInPublic(uint256 packageAmount, bool isReferral, address referralAddress, address tokenAddress) external nonReentrant isContractCall(msg.sender) publicSalesCheck tokenCheck(tokenAddress) returns(bool){
         uint256 estimatedToken;
         uint256 icbAmount;
-        uint8 lockTime;
-        uint8 vestingTime;
-        (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token); // 6 for token decimal on ethereum both token having 6 decimal value
-        (lockTime, vestingTime) = calUserLockAndVestingTime(packageAmount);
-         uint256 exactBuyerIcbAmt;
+        (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token);
+        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        uint256 exactBuyerIcbAmt;
         if(isReferral){
+            require(icbInvestors[referralAddress], "Referral Address not invested ealier");
             uint256 buyerActualICB = (icbAmount *99)/100;
             uint256 referralAmount = icbAmount - buyerActualICB;
-            userReferralReward[referalAddress] += referralAmount;
+            userReferralReward[referralAddress] += referralAmount;
             exactBuyerIcbAmt = buyerActualICB;
-            internalDeposit(msg.sender, packageAmount, buyerActualICB, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType);
+            internalDeposit(msg.sender, packageAmount, buyerActualICB, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }
         else{
             exactBuyerIcbAmt = icbAmount;
-            internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType);
+            internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }
-        totalSoldInPublicSale += icbAmount; 
+        internalSalePhaseAmount(icbAmount);
         calPerDayIcbDollar();    
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
-        emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockTime , vestingTime);
+        emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
     }
     
-    /// @notice This function used in public sale for buying the ICB using both token(USDT, USDC)
+    /// @notice This function used in public sale for buying the ICB using native currency
     /// @param packageAmount The packageAmount in usd 
-    function payWithNativeInPublic(uint256 packageAmount, bool isReferral, address referalAddress) external payable nonReentrant publicSalesCheck returns(bool){
-        Package memory p = packages[packageAmount];
+    /// @param isReferral This is used to tell that user is paying with referralAddress if isReferral is true otherwise we are skiping this part in calculation
+    /// @param referralAddress The referral address which must be our investor ealier in any sale
+    function payWithNativeInPublic(uint256 packageAmount, bool isReferral, address referralAddress) external payable nonReentrant isContractCall(msg.sender) publicSalesCheck returns(bool){
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.eth);
         require(msg.value >= estimatedNative, "Insufficient Native value");
-        uint8 lockTime;
-        uint8 vestingTime;
-        (lockTime, vestingTime) = calUserLockAndVestingTime(packageAmount);
         uint256 exactBuyerIcbAmt;
         if(isReferral){
+            require(icbInvestors[referralAddress], "Referral Address not invested ealier");
             uint256 buyerActualICB = (icbAmount *99)/100;
             uint256 referralAmount = icbAmount - buyerActualICB;
-            userReferralReward[referalAddress] += referralAmount;
+            userReferralReward[referralAddress] += referralAmount;
             exactBuyerIcbAmt = buyerActualICB;
-            internalDeposit(msg.sender, packageAmount, buyerActualICB, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType);
+            internalDeposit(msg.sender, packageAmount, buyerActualICB, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }else{
             exactBuyerIcbAmt = icbAmount;
-            internalDeposit(msg.sender, packageAmount, icbAmount, p.icbPerDollar , block.timestamp, lockTime, vestingTime, currentSaleType );
+            internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType );
         }
-        totalSoldInPublicSale += icbAmount;
+        internalSalePhaseAmount(icbAmount);
         calPerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
-        emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockTime , vestingTime);
-
+        emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
     }   
     
@@ -406,38 +405,39 @@ contract ICB_ICO is ReentrancyGuard {
     
     /**** Internal ****/
 
+    function internalSalePhaseAmount(uint256 icbAmount) internal {
+        if(SaleType.privateSale == currentSaleType){
+            totalSoldInPrivateSale += icbAmount;
+        }
+        if(SaleType.preSale1 == currentSaleType){
+            totalSoldInPreSale1 += icbAmount;
+        }
+        if(SaleType.preSale2 == currentSaleType){
+            totalSoldInPreSale2 += icbAmount;           
+        }
+        if(SaleType.publicSale == currentSaleType){
+            totalSoldInPublicSale += icbAmount;           
+        }
+    } 
+
     /// @dev function to update the user details
     function internalDeposit(address userAddress, uint256 packageAmount, uint256 userIcbAmount, uint256 icbInDollar, uint256 investTime, uint8 lockMonthTime, uint8 linearVestingTime, SaleType currentSaleTypes) internal  {
         userDeposits[userAddress].push(UserDeposit(packageAmount, userIcbAmount, icbInDollar, investTime, lockMonthTime, linearVestingTime, currentSaleTypes));
+        if(!icbInvestors[userAddress]){
+            icbInvestors[userAddress] = true;
+        }
     }
-
+ 
     function getTimestampOfNextDate() internal {
         nextDateTimestamp = (block.timestamp / 1 days + 1) * 1 days;
     
     }
 
-    function calPerDayIcbDollar() public{   
+    function calPerDayIcbDollar() internal  {   
         if(nextDateTimestamp <= block.timestamp) {
             icbDollarInPrePublic += incrementPriceEveryDay;
             getTimestampOfNextDate();
         }
-    }
-
-    function calUserLockAndVestingTime(uint256 packageAmount) internal view returns(uint8, uint8){
-        Package memory p = packages[packageAmount];
-        if(packageAmount >= 1000 && packageAmount < 5000){
-            return (p.lockMonthTime, p.linearVestingTime);
-        }
-        if(packageAmount >= 5000 && packageAmount < 10000){
-            return (p.lockMonthTime, p.linearVestingTime);
-        }
-        if(packageAmount >= 10000 && packageAmount < 30000){
-            return (p.lockMonthTime, p.linearVestingTime);
-        }
-        if(packageAmount >= 30000){
-            return (p.lockMonthTime, p.linearVestingTime);
-        }
-        return (lockMonth, vestingMonth);
     }
 
     function isContract(address account) internal view returns (bool) {

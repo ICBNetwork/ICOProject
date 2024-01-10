@@ -224,14 +224,12 @@ describe("ICB_ICO", async function () {
 
       const packages = await icb.packages(packageAmount);
       const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
-      console.log(estimateAmt)
       expect(await icb.currentSaleType()).to.be.equal(1);
       await time.increaseTo(saleStart);
       const funderbalanceBefore = await provider.getBalance(funderAddr);
       await icb.payWithNativeInPrivate(packageAmount, {
         value: estimateAmt[0],
       });
-      console.log(await icb.getUserDetails(owner));
       const funderbalanceAfter = await provider.getBalance(funderAddr);
       
       expect(await funderbalanceAfter).to.equal(
