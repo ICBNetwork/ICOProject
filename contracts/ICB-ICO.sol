@@ -8,15 +8,15 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 contract ICB_ICO is ReentrancyGuard {
     
     // comman variable in(private, preSale1, preSale2, public) sales
-    address public owner;
-    address public funderAddress;
-    address public usdtTokenAddress;
-    address public usdcTokenAddress;
+    address public immutable owner;
+    address public immutable funderAddress;
+    address public immutable usdtTokenAddress;
+    address public immutable usdcTokenAddress;
     AggregatorV3Interface internal priceFeed;
     uint256 public saleStartTime;
     uint256 public saleEndTime;
-    uint256 public baseMultiplier;
-    uint8 public tokenDecimal; 
+    uint256 public immutable baseMultiplier; // using this to achieve the decimal value
+    uint8 public immutable tokenDecimal; 
 
     // private sale variable
     uint256 public totalSoldInPrivateSale; // for storing the private sale ICB amount
@@ -69,13 +69,14 @@ contract ICB_ICO is ReentrancyGuard {
     }
 
     mapping(uint256 => Package) public packages; // PackAmount => Package
-    mapping(address => UserDeposit[]) private userDeposits; // userAddress => UserDeposit
+    mapping(address => UserDeposit[]) private _userDeposits; // userAddress => UserDeposit
     mapping(address => uint256) public userReferralReward; // userAddress => rewardAmount
     mapping(address => bool) public icbInvestors;
 
     event FundTransfer(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, uint256 investTime, uint256 lockMonthTime, uint256 linearVestingTime, SaleType currentSalePhase);
     event ConfigPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths);
     event UpdateLockAndVestingMonth(uint8 lockMonths, uint8 vestingMonths);
+    event ToggleSale(SaleType setSaletype);
 
     modifier onlyOwner() {
         require(owner == msg.sender, "You are not the Owner");
@@ -93,7 +94,7 @@ contract ICB_ICO is ReentrancyGuard {
     }
 
     modifier privateSaleBuyCheck(address user) {
-        require(userDeposits[msg.sender].length < 1, "Already bought a package");
+        require(_userDeposits[msg.sender].length < 1, "Already bought a package");
         _;
     }
 
@@ -122,6 +123,11 @@ contract ICB_ICO is ReentrancyGuard {
     modifier publicSalesCheck() {
         require(currentSaleType == SaleType.publicSale, "Sale type is not matched");
         require(block.timestamp > saleStartTime ," Sale is not started"); // We are not comparing the end time because in public sale owner can end the sale anytime as they want.
+        _;
+    }
+
+    modifier inputNumberCheck(uint256 amount) {
+        require(amount != 0," Invalid input amount");
         _;
     }
     
@@ -155,6 +161,7 @@ contract ICB_ICO is ReentrancyGuard {
     
     /// @notice This function is used by admin to update the user data who did the payment using card
     function addUserByAdmin(address[] memory userAddress, uint256[] memory packageAmount, uint256[] memory userIcbAmount, uint256[] memory icbInDollar, uint256[] memory investTime, uint8[] memory lockMonthTime, uint8[] memory linearVestingTime, SaleType[] memory currentSaleTypes) external onlyOwner returns(bool) {
+        require(userAddress.length <= 100,"Adding more than 100 users at a time causing gas issue");
         for(uint256 i=0; i <= userAddress.length; i++){
         internalDeposit(userAddress[i], packageAmount[i], userIcbAmount[i], icbInDollar[i], investTime[i], lockMonthTime[i], linearVestingTime[i], currentSaleTypes[i]);
         }
@@ -174,6 +181,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param setSaleStatus To set sale off we have to pass: 0 and to open the sale pass the saleType as required : 1,2,3, and 4
     function toggleSale(SaleType setSaleStatus) external onlyOwner {
         currentSaleType = setSaleStatus;
+        emit ToggleSale(setSaleStatus);
     }
     
     /// @notice To configure the pre(1 and 2) and public sale 
@@ -183,6 +191,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param lockMonths The lock month accordingly 
     /// @param vestingMonths The vesting month accordingly
     function configPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths) external onlyOwner returns(bool) {
+        require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
         currentSaleType = setSaletype;
         icbDollarInPrePublic = salePriceInDollar;
         incrementPriceEveryDay =  everyDayIncreasePrice;
@@ -232,11 +241,10 @@ contract ICB_ICO is ReentrancyGuard {
         return price;
     }
     
-    /** Private Sale **/
 
     /// @notice To calculate the estimate fund for token and icb 
     /// @param packageAmount The exact package amount which is set for private sale
-    function estimatePrivateFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
+    function estimatePrivateFund(uint256 packageAmount, BuyType buyType) public view inputNumberCheck(packageAmount) returns(uint256, uint256){
         uint256 icbDollar = packages[packageAmount].icbPerDollar;
         if(BuyType.eth == buyType){
             // int256 liveprice = getNativePrice() * 10 ** 10;
@@ -256,10 +264,10 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @notice To calculate the estimate fund for token and icb 
     /// @param packageAmount The exact package amount which is set for private sale
-    function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
+    function estimatePrePublicFund(uint256 packageAmount, BuyType buyType) public view inputNumberCheck(packageAmount) returns(uint256, uint256){
         if(BuyType.eth == buyType){
-            int256 liveprice = getNativePrice() * 10 ** 10;
-            // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
+            // int256 liveprice = getNativePrice() * 10 ** 10;
+            int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * baseMultiplier) / icbDollarInPrePublic;
@@ -272,16 +280,18 @@ contract ICB_ICO is ReentrancyGuard {
         }
         return (0,0);    
     }
+
+    /** Private Sale **/
                                                
     /// @notice This function used in private sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The exact package amount which is set for private sale
     /// @param tokenAddress The token address from which user can buy
-    function payWithTokenInPrivate(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) privateSaleCheck tokenCheck(tokenAddress) packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
+    function payWithTokenInPrivate(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) privateSaleCheck tokenCheck(tokenAddress) packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
         Package memory privateSalePackage = packages[packageAmount];
         uint256 estimatedToken;
         uint256 icbAmount;
         (estimatedToken, icbAmount) = estimatePrivateFund(packageAmount, BuyType.token);
-        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        internalCheckUserBalanceAndAllowance(tokenAddress, estimatedToken);
         internalDeposit(msg.sender, packageAmount, icbAmount, privateSalePackage.icbPerDollar , block.timestamp, privateSalePackage.lockMonthTime, privateSalePackage.linearVestingTime, currentSaleType);
         internalSalePhaseAmount(icbAmount);
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
@@ -291,7 +301,7 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @notice This function used in private sale for buying the ICB using native token
     /// @param packageAmount The exact package amount which is set for private sale
-    function payWithNativeInPrivate(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) privateSaleCheck packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
+    function payWithNativeInPrivate(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) privateSaleCheck packageAmountCheck(packageAmount) privateSaleBuyCheck(msg.sender) returns(bool){
         Package memory privateSalePackage = packages[packageAmount];
         uint256 estimatedNative;
         uint256 icbAmount;
@@ -309,14 +319,14 @@ contract ICB_ICO is ReentrancyGuard {
     /// @notice This function used in private sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The packageAmount in usd 
     /// @param tokenAddress The token address from which user can buy
-    function payWithTokenInPresale(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) tokenCheck(tokenAddress) preSalesCheck returns(bool){
+    function payWithTokenInPresale(uint256 packageAmount, address tokenAddress) external nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) tokenCheck(tokenAddress) preSalesCheck returns(bool){
         uint256 estimatedToken;
         uint256 icbAmount;
         (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token);
-        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        internalCheckUserBalanceAndAllowance(tokenAddress, estimatedToken);
         internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic , block.timestamp, lockMonth, vestingMonth, currentSaleType);
         internalSalePhaseAmount(icbAmount);
-        calPerDayIcbDollar();
+        calculatePerDayIcbDollar();
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
         emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
@@ -324,14 +334,14 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @notice This function used in presale sale for buying the ICB using Native token
     /// @param packageAmount The packageAmount in usd 
-    function payWithNativeInPresale(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) preSalesCheck returns(bool){
+    function payWithNativeInPresale(uint256 packageAmount) external payable nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) preSalesCheck returns(bool){
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.eth);
         require(msg.value >= estimatedNative, "Insufficient Native value");
         internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         internalSalePhaseAmount(icbAmount);
-        calPerDayIcbDollar();
+        calculatePerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
         emit FundTransfer(msg.sender, packageAmount, icbAmount, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
@@ -342,17 +352,17 @@ contract ICB_ICO is ReentrancyGuard {
     /// @notice This function used in public sale for buying the ICB using both token(USDT, USDC)
     /// @param packageAmount The packageAmount in usd 
     /// @param isReferral This is used to tell that user is paying with referralAddress if isReferral is true otherwise we are skiping this part in calculation
-    /// @param referralAddress The referral address which must be our investor ealier in any sale
+    /// @param referralAddress The referral address which must be our investor earlier in any sale
     /// @param tokenAddress The token address from which user can buy
-    function payWithTokenInPublic(uint256 packageAmount, bool isReferral, address referralAddress, address tokenAddress) external nonReentrant isContractCall(msg.sender) publicSalesCheck tokenCheck(tokenAddress) returns(bool){
+    function payWithTokenInPublic(uint256 packageAmount, bool isReferral, address referralAddress, address tokenAddress) external nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) publicSalesCheck tokenCheck(tokenAddress) returns(bool){
         uint256 estimatedToken;
         uint256 icbAmount;
         (estimatedToken, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.token);
-        require(IERC20(tokenAddress).allowance(msg.sender, address(this)) >= estimatedToken, "Insufficient allowance");
+        internalCheckUserBalanceAndAllowance(tokenAddress, estimatedToken);
         uint256 exactBuyerIcbAmt;
         if(isReferral){
-            require(icbInvestors[referralAddress], "Referral Address not invested ealier");
-            uint256 buyerActualICB = (icbAmount *99)/100;
+            require(icbInvestors[referralAddress], "Referral Address not invested earlier");
+            uint256 buyerActualICB = (icbAmount * 99)/100;
             uint256 referralAmount = icbAmount - buyerActualICB;
             userReferralReward[referralAddress] += referralAmount;
             exactBuyerIcbAmt = buyerActualICB;
@@ -363,7 +373,7 @@ contract ICB_ICO is ReentrancyGuard {
             internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }
         internalSalePhaseAmount(icbAmount);
-        calPerDayIcbDollar();    
+        calculatePerDayIcbDollar();    
         IERC20(tokenAddress).transferFrom(msg.sender, funderAddress, estimatedToken);
         emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
@@ -373,15 +383,15 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param packageAmount The packageAmount in usd 
     /// @param isReferral This is used to tell that user is paying with referralAddress if isReferral is true otherwise we are skiping this part in calculation
     /// @param referralAddress The referral address which must be our investor ealier in any sale
-    function payWithNativeInPublic(uint256 packageAmount, bool isReferral, address referralAddress) external payable nonReentrant isContractCall(msg.sender) publicSalesCheck returns(bool){
+    function payWithNativeInPublic(uint256 packageAmount, bool isReferral, address referralAddress) external payable nonReentrant isContractCall(msg.sender) inputNumberCheck(packageAmount) publicSalesCheck returns(bool){
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimatePrePublicFund(packageAmount, BuyType.eth);
         require(msg.value >= estimatedNative, "Insufficient Native value");
         uint256 exactBuyerIcbAmt;
         if(isReferral){
-            require(icbInvestors[referralAddress], "Referral Address not invested ealier");
-            uint256 buyerActualICB = (icbAmount *99)/100;
+            require(icbInvestors[referralAddress], "Referral Address not invested earlier");
+            uint256 buyerActualICB = (icbAmount * 99)/100;
             uint256 referralAmount = icbAmount - buyerActualICB;
             userReferralReward[referralAddress] += referralAmount;
             exactBuyerIcbAmt = buyerActualICB;
@@ -391,7 +401,7 @@ contract ICB_ICO is ReentrancyGuard {
             internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType );
         }
         internalSalePhaseAmount(icbAmount);
-        calPerDayIcbDollar();
+        calculatePerDayIcbDollar();
         payable(funderAddress).transfer(estimatedNative);
         emit FundTransfer(msg.sender, packageAmount, exactBuyerIcbAmt, block.timestamp, lockMonth , vestingMonth, currentSaleType);
         return true;
@@ -400,7 +410,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @notice To get the user invest details
     /// @param userAddress The user address from which we need the details
     function getUserDetails(address userAddress) external view returns (UserDeposit[] memory) {
-        return userDeposits[userAddress];
+        return _userDeposits[userAddress];
     }
     
     /**** Internal ****/
@@ -422,18 +432,23 @@ contract ICB_ICO is ReentrancyGuard {
 
     /// @dev function to update the user details
     function internalDeposit(address userAddress, uint256 packageAmount, uint256 userIcbAmount, uint256 icbInDollar, uint256 investTime, uint8 lockMonthTime, uint8 linearVestingTime, SaleType currentSaleTypes) internal  {
-        userDeposits[userAddress].push(UserDeposit(packageAmount, userIcbAmount, icbInDollar, investTime, lockMonthTime, linearVestingTime, currentSaleTypes));
+        _userDeposits[userAddress].push(UserDeposit(packageAmount, userIcbAmount, icbInDollar, investTime, lockMonthTime, linearVestingTime, currentSaleTypes));
         if(!icbInvestors[userAddress]){
             icbInvestors[userAddress] = true;
         }
     }
+
+    function internalCheckUserBalanceAndAllowance(address tokenAddress, uint256 estimatedAmount) internal view {
+        IERC20 token = IERC20(tokenAddress);
+        require(token.balanceOf(msg.sender) >= estimatedAmount, "Insufficient token balance");
+        require(token.allowance(msg.sender, address(this)) >= estimatedAmount, "Insufficient allowance");
+    }
  
     function getTimestampOfNextDate() internal {
-        nextDateTimestamp = (block.timestamp / 1 days + 1) * 1 days;
-    
+        nextDateTimestamp = (block.timestamp / 1 days + 1) * 1 days;    
     }
 
-    function calPerDayIcbDollar() internal  {   
+    function calculatePerDayIcbDollar() internal  {   
         if(nextDateTimestamp <= block.timestamp) {
             icbDollarInPrePublic += incrementPriceEveryDay;
             getTimestampOfNextDate();
