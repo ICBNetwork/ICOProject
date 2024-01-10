@@ -206,7 +206,6 @@ describe("ICB_ICO", async function () {
         lockMonthTime,
         linearVestingTime
       );
-
       try {
         const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
         await icb.payWithNativeInPrivate(packageAmount, {
@@ -214,7 +213,7 @@ describe("ICB_ICO", async function () {
         });
         throw new Error("Error");
       } catch (error) {
-        expect(error.message).to.include("Sale type is not matched");
+          expect(error.message).to.include("Sale type is not matched");
       }
     });
 
