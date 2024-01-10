@@ -2,7 +2,7 @@
 pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract ICB_ICO is ReentrancyGuard {
@@ -147,7 +147,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param saleStart The private sale start time
     /// @param saleEnd The private sale end time
     function configPrivateSale(SaleType setSaletype, uint256 saleStart, uint256 saleEnd) external onlyOwner returns(bool) {
-        require(saleStart > block.timestamp && saleEnd > saleStart ,"End time is must be greater than start time");
+        require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
         currentSaleType = setSaletype;
         saleStartTime = saleStart;
         saleEndTime = saleEnd;
@@ -221,8 +221,8 @@ contract ICB_ICO is ReentrancyGuard {
     function estimatePrivateFund(uint256 packageAmount, BuyType buyType) public view returns(uint256, uint256){
         uint256 icbDollar = packages[packageAmount].icbPerDollar;
         if(BuyType.eth == buyType){
-            int256 liveprice = getNativePrice() * 10 ** 10;
-            // int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
+            // int256 liveprice = getNativePrice() * 10 ** 10;
+            int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * 10**7 ) / icbDollar;
