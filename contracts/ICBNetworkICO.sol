@@ -6,15 +6,10 @@ import './ICBNetworkPublicSale.sol';
 import './ICBNetworkPreSale.sol';
 
 contract ICBNetworkICO{
-    ICBNetworkPrivateSale public _privateSale;
+    ICBNetworkPrivateSale _privateSale;
     ICBNetworkPreSale _one_presale;
     ICBNetworkPreSale _two_presale;
     ICBNetworkPublicSale _public_sale;
-
-    constructor(address privateSaleContractOwner, address funderWallet, address usdtAddress, address usdcAddress){
-        _privateSale = new ICBNetworkPrivateSale(privateSaleContractOwner,funderWallet,usdtAddress, usdcAddress);
-      
-    }
 
     
 }
