@@ -23,9 +23,8 @@ describe("ICB_ICO", async function () {
     const saleType = 1;
     const latestBlock = await ethers.provider.getBlock("latest");
     // Retrieve the timestamp from the latest block
-    const currentTime = latestBlock.timestamp;
-    const timestamp = Date.now();
-    const saleStart = currentTime + 100000;
+
+    const saleStart = latestBlock.timestamp + 10;
     const saleEnd = saleStart + 100;
 
     const ICB_ICO_ETH = await ethers.getContractFactory("ICB_ICO");
@@ -159,13 +158,30 @@ describe("ICB_ICO", async function () {
 
   describe("Pay With Native In Private Sale", async function () {
     it("Cannot pay with native currency ETH, Sale type not matched", async function () {
-      const { icb, owner, funderAddr, provider } = await deployment();
+      const { icb, latestBlock } = await deployment();
       const packageAmount = 1000;
 
-      await icb.toggleSale(0);
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
 
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
+        const estimateAmt = await icb.estimateFund(packageAmount, 0);
         await icb.payWithNativeInPrivate(packageAmount, {
           value: estimateAmt[0],
         });
@@ -180,7 +196,7 @@ describe("ICB_ICO", async function () {
       const packageAmount = 1000;
 
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
+        const estimateAmt = await icb.estimateFund(packageAmount, 0);
         await icb.payWithNativeInPrivate(packageAmount, {
           value: estimateAmt[0],
         });
@@ -196,7 +212,7 @@ describe("ICB_ICO", async function () {
       const { icb, saleStart, saleEnd } = await deployment();
       const packageAmount = 1000;
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
+        const estimateAmt = await icb.estimateFund(packageAmount, 0);
         await time.increaseTo(saleEnd + 100);
         await icb.payWithNativeInPrivate(packageAmount, {
           value: estimateAmt[0],
@@ -214,7 +230,7 @@ describe("ICB_ICO", async function () {
       const packageAmount = 1000;
 
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
+        const estimateAmt = await icb.estimateFund(packageAmount, 0);
         await time.increaseTo(saleStart);
         await icb.payWithNativeInPrivate(100, {
           value: estimateAmt[0],
@@ -231,7 +247,7 @@ describe("ICB_ICO", async function () {
       const packageAmount = 1000;
 
       const packages = await icb.packages(packageAmount);
-      const estimateAmt = await icb.estimatePrivateFund(packageAmount, 0);
+      const estimateAmt = await icb.estimateFund(packageAmount, 0);
       expect(await icb.currentSaleType()).to.be.equal(1);
       await time.increaseTo(saleStart);
       const funderbalanceBefore = await provider.getBalance(funderAddr);
@@ -257,14 +273,32 @@ describe("ICB_ICO", async function () {
     });
   });
 
-  describe("Pay with token in private sale", async function () {
+  describe("Pay with token USDC/USDT in private sale", async function () {
     it("Cannot pay with token USDT/USDC, Sale type not matched", async function () {
-      const { icb, USDT_Address } = await deployment();
+      const { icb, USDT_Address, latestBlock } = await deployment();
       const packageAmount = 1000;
 
-      await icb.toggleSale(0);
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 1);
+        const estimateAmt = await icb.estimateFund(packageAmount, 1);
         await icb.payWithTokenInPrivate(packageAmount, USDT_Address);
         throw new Error("Error");
       } catch (error) {
@@ -277,7 +311,7 @@ describe("ICB_ICO", async function () {
       const packageAmount = 1000;
 
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 1);
+        const estimateAmt = await icb.estimateFund(packageAmount, 1);
         await icb.payWithTokenInPrivate(packageAmount, USDT_Address);
         throw new Error("Error");
       } catch (error) {
@@ -292,7 +326,7 @@ describe("ICB_ICO", async function () {
       const packageAmount = 1000;
 
       try {
-        const estimateAmt = await icb.estimatePrivateFund(packageAmount, 1);
+        const estimateAmt = await icb.estimateFund(packageAmount, 1);
         await time.increaseTo(saleEnd + 100);
         await icb.payWithTokenInPrivate(packageAmount, USDT_Address);
         throw new Error("Error");
@@ -343,14 +377,17 @@ describe("ICB_ICO", async function () {
     it("Should successfully set the token allowance", async function () {
       const { icb, owner, USDT_Address, usdt } = await deployment();
       const packageAmount = 1000;
-      const estimateAmt = await icb.estimatePrivateFund(packageAmount, 1);
+      const estimateAmt = await icb.estimateFund(packageAmount, 1);
+      const tokenAmount = await estimateAmt[0];
       const balance = await usdt.balanceOf(owner.getAddress());
       await usdt.approve(icb, estimateAmt[0]);
 
-      expect(usdt.allowance(owner, icb.getAddress()));
+      expect(
+        await usdt.allowance(owner, icb.getAddress())
+      ).to.be.greaterThanOrEqual(await tokenAmount);
     });
 
-    it("Should successfully pay with token USDC/USDT", async function () {
+    it("Should successfully pay with token USDC/USDT in private Sale", async function () {
       const {
         icb,
         owner,
@@ -362,7 +399,7 @@ describe("ICB_ICO", async function () {
         saleType,
       } = await deployment();
       const packageAmount = 1000;
-      const estimateAmt = await icb.estimatePrivateFund(packageAmount, 1);
+      const estimateAmt = await icb.estimateFund(packageAmount, 1);
       const packages = await icb.packages(packageAmount);
 
       await usdt.approve(icb, estimateAmt[0]);
@@ -395,8 +432,8 @@ describe("ICB_ICO", async function () {
     });
   });
 
-  describe("Config PreSale1", async function () {
-    it("Should not config pre sale1, caller is not owner", async function () {
+  describe("Config PreSale", async function () {
+    it("Should not config presale, caller is not owner", async function () {
       const { icb, latestBlock } = await deployment();
       const [addr1, addr2] = await ethers.getSigners();
 
@@ -426,24 +463,25 @@ describe("ICB_ICO", async function () {
       }
     });
 
-    it("Should succesfully config pre sale1", async function () {
-      const { icb, latestBlock } = await deployment();
+    it("Should succesfully config presale", async function () {
+      const { icb, latestBlock, saleEnd } = await deployment();
       const [addr1, addr2] = await ethers.getSigners();
-
+      await icb.resetSale();
       const setSaletype = 2;
       const salePriceInDollar = 2000; //(0.0002)
       const everyDayIncreasePrice = 100; //(0.00001)
-      const saleStart = latestBlock.timestamp + 100;
-      const saleEnd = saleStart + 100;
+      const saleStart = latestBlock.timestamp + 3500;
+      const saleEnds = saleStart + 100;
       const lockMonths = 6;
       const vestingMonths = 12;
+      expect(await latestBlock.timestamp).to.be.greaterThan(await icb.saleEndTime())
 
       await icb.configPrePublicSale(
         setSaletype,
         salePriceInDollar,
         everyDayIncreasePrice,
         saleStart,
-        saleEnd,
+        saleEnds,
         lockMonths,
         vestingMonths
       );
@@ -455,31 +493,10 @@ describe("ICB_ICO", async function () {
       expect(await icb.saleEndTime()).to.be.greaterThan(
         await icb.saleStartTime()
       );
-      expect(
-        await icb.configPrePublicSale(
-          setSaletype,
-          salePriceInDollar,
-          everyDayIncreasePrice,
-          saleStart,
-          saleEnd,
-          lockMonths,
-          vestingMonths
-        )
-      )
-        .to.emit(icb, "ConfigPrePublicSale")
-        .withArgs(
-          setSaletype,
-          salePriceInDollar,
-          everyDayIncreasePrice,
-          saleStart,
-          saleEnd,
-          lockMonths,
-          vestingMonths
-        );
     });
   });
 
-  describe("Pay with native currency in presale1", async function () {
+  describe("Pay with native currency in presale", async function () {
     it("Cannot pay with native currency ETH in presale, Sale type not matched", async function () {
       const { icb, latestBlock } = await deployment();
       const packageAmount = 100;
@@ -492,19 +509,9 @@ describe("ICB_ICO", async function () {
       const lockMonths = 6;
       const vestingMonths = 12;
 
-      await icb.configPrePublicSale(
-        setSaletype,
-        salePriceInDollar,
-        everyDayIncreasePrice,
-        saleStart,
-        saleEnd,
-        lockMonths,
-        vestingMonths
-      );
-
-      await icb.toggleSale(0);
       try {
-        const estimateAmt = await icb.estimatePrePublicFund(1000, 0);
+        const estimateAmt = await icb.estimateFund(1000, 0);
+        await time.increaseTo(saleStart + 10)
         await icb.payWithNativeInPresale(packageAmount, {
           value: estimateAmt[0],
         });
@@ -526,6 +533,7 @@ describe("ICB_ICO", async function () {
       const lockMonths = 6;
       const vestingMonths = 12;
 
+      await icb.resetSale()
       await icb.configPrePublicSale(
         setSaletype,
         salePriceInDollar,
@@ -537,7 +545,8 @@ describe("ICB_ICO", async function () {
       );
       expect(await icb.currentSaleType()).to.equal(2);
       try {
-        const estimateAmt = await icb.estimatePrePublicFund(1000, 0);
+        const estimateAmt = await icb.estimateFund(packageAmount, 0);
+
         await icb.payWithNativeInPresale(packageAmount, {
           value: estimateAmt[0],
         });
@@ -561,6 +570,7 @@ describe("ICB_ICO", async function () {
       const lockMonths = 6;
       const vestingMonths = 12;
 
+      await icb.resetSale()
       await icb.configPrePublicSale(
         setSaletype,
         salePriceInDollar,
@@ -572,8 +582,9 @@ describe("ICB_ICO", async function () {
       );
       expect(await icb.currentSaleType()).to.equal(2);
       try {
-        const estimateAmt = await icb.estimatePrePublicFund(1000, 0);
-        await time.increaseTo(saleStart + 200);
+        const estimateAmt = await icb.estimateFund(1000, 0);
+        await time.increaseTo(saleEnd + 10)
+
         await icb.payWithNativeInPresale(packageAmount, {
           value: estimateAmt[0],
         });
@@ -596,7 +607,8 @@ describe("ICB_ICO", async function () {
       const saleEnd = saleStart + 100;
       const lockMonths = 6;
       const vestingMonths = 12;
-
+      
+      await icb.resetSale()
       await icb.configPrePublicSale(
         setSaletype,
         salePriceInDollar,
@@ -608,7 +620,7 @@ describe("ICB_ICO", async function () {
       );
       expect(await icb.currentSaleType()).to.equal(2);
       try {
-        const estimateAmt = await icb.estimatePrePublicFund(1000, 0);
+        const estimateAmt = await icb.estimateFund(1000, 0);
         time.increaseTo(saleStart);
         await icb.payWithNativeInPresale(packageAmount, {
           value: 1000,
@@ -620,7 +632,8 @@ describe("ICB_ICO", async function () {
     });
 
     it("Succesfully pay with native currency ETH in presale", async function () {
-      const { icb, owner, latestBlock, funderAddr, usdt, provider } = await deployment();
+      const { icb, owner, latestBlock, funderAddr, usdt, provider } =
+        await deployment();
       const packageAmount = 100;
 
       const setSaletype = 2;
@@ -630,7 +643,8 @@ describe("ICB_ICO", async function () {
       const saleEnd = saleStart + 100;
       const lockMonths = 6;
       const vestingMonths = 12;
-
+      
+      await icb.resetSale()
       await icb.configPrePublicSale(
         setSaletype,
         salePriceInDollar,
@@ -641,8 +655,8 @@ describe("ICB_ICO", async function () {
         vestingMonths
       );
       expect(await icb.currentSaleType()).to.equal(2);
-      const estimateAmt = await icb.estimatePrePublicFund(1000, 0);
-      const icbAmount = estimateAmt[1]
+      const estimateAmt = await icb.estimateFund(1000, 0);
+      const icbAmount = estimateAmt[1];
       time.increaseTo(saleStart);
 
       const funderbalanceBefore = await provider.getBalance(funderAddr);
@@ -650,9 +664,13 @@ describe("ICB_ICO", async function () {
         value: estimateAmt[0],
       });
       const funderbalanceAfter = await provider.getBalance(funderAddr);
-      
-      expect(await funderbalanceAfter).to.be.greaterThan(await funderbalanceBefore)
-      expect(await provider.getBalance(funderAddr)).to.be.equal(funderbalanceAfter)
+
+      expect(await funderbalanceAfter).to.be.greaterThan(
+        await funderbalanceBefore
+      );
+      expect(await provider.getBalance(funderAddr)).to.be.equal(
+        funderbalanceAfter
+      );
 
       expect(icb.payWithNativeInPresale(packageAmount))
         .to.emit(icb, "FundTransfer")
@@ -664,6 +682,373 @@ describe("ICB_ICO", async function () {
           lockMonths,
           vestingMonths
         );
+    });
+  });
+
+  describe("Pay with token USDC/USDT in PreSale", async function () {
+    it("Cannot pay with token USDT/USDC in presale, Invalid package amount", async function () {
+      const { icb, latestBlock, USDT_Address } = await deployment();
+
+      const packageAmount = 0;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+
+      try {
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Invalid amount");
+      } catch (error) {
+        expect(error.message).to.include("Invalid input amount");
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, Sale type not matched", async function () {
+      const { icb, USDT_Address } = await deployment();
+      const packageAmount = 1000;
+
+      try {
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Invalid Sale type");
+      } catch (error) {
+        expect(error.message).to.include("Sale type is not matched");
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, Sale is not started", async function () {
+      const { icb, latestBlock, USDT_Address } = await deployment();
+
+      const packageAmount = 1000;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+
+      try {
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Sale not started");
+      } catch (error) {
+        expect(error.message).to.include(
+          "Sale is not started or sale is ended"
+        );
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, Sale is ended", async function () {
+      const { icb, latestBlock, USDT_Address } = await deployment();
+
+      const packageAmount = 1000;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+
+      try {
+        await time.increaseTo(saleEnd + 100);
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Sale ended");
+      } catch (error) {
+        expect(error.message).to.include(
+          "Sale is not started or sale is ended"
+        );
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, invalid token address", async function () {
+      const { icb, latestBlock } = await deployment();
+      const packageAmount = 1000;
+      const USDT_Address = "0x0000000000000000000000000000000000000000";
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(2);
+      try {
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Invalid Address");
+      } catch (error) {
+        expect(error.message).to.include("Unsupported token");
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, insufficient balance", async function () {
+      const { icb, latestBlock, USDT_Address, usdt } = await deployment();
+      const [addr1, addr2] = await ethers.getSigners();
+      const packageAmount = 1000;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(2);
+      try {
+        await time.increaseTo(saleStart);
+        await icb
+          .connect(addr2)
+          .payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Invalid Address");
+      } catch (error) {
+        expect(error.message).to.include("Insufficient token balance");
+      }
+    });
+
+    it("Cannot pay with token USDC/USDT in presale, insufficient allowance", async function () {
+      const { icb, latestBlock, USDT_Address } = await deployment();
+      const packageAmount = 1000;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(2);
+      try {
+        await time.increaseTo(saleStart);
+        await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+        throw new Error("Invalid Address");
+      } catch (error) {
+        expect(error.message).to.include("Insufficient allowance");
+      }
+    });
+
+    it("Should successfully set the token allowance", async function () {
+      const { icb, owner, usdt, latestBlock } = await deployment();
+      const packageAmount = 1000;
+
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(2);
+      const estimateAmt = await icb.estimateFund(packageAmount, 1);
+      const tokenAmount = estimateAmt[0];
+      const balance = await usdt.balanceOf(owner.getAddress());
+      expect(await balance).to.be.greaterThanOrEqual(tokenAmount);
+      await usdt.approve(icb, tokenAmount);
+
+      expect(
+        await usdt.allowance(owner, icb.getAddress())
+      ).to.be.greaterThanOrEqual(await tokenAmount);
+    });
+
+    it("Should successfully pay with token USDC/USDT in preSale", async function () {
+      const { icb, owner, USDT_Address, usdt, funderAddr, latestBlock } =
+        await deployment();
+      const packageAmount = 1000;
+      const setSaletype = 2;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp + 100;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale()
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStart,
+        saleEnd,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(2);
+
+      const estimateAmt = await icb.estimateFund(packageAmount, 1);
+      const tokenAmount = estimateAmt[0];
+      await usdt.approve(icb, tokenAmount);
+      expect(
+        await usdt.allowance(owner, icb.getAddress())
+      ).to.be.greaterThanOrEqual(await tokenAmount);
+
+      await time.increaseTo(saleStart + 50);
+
+      const funderWalletBalanceBefore = await usdt.balanceOf(funderAddr);
+      await icb.payWithTokenInPresale(packageAmount, USDT_Address);
+      const funderWalletBalanceAfter = await usdt.balanceOf(funderAddr);
+
+      expect(await funderWalletBalanceAfter).to.be.greaterThan(
+        await funderWalletBalanceBefore
+      );
+
+      expect(await usdt.balanceOf(funderAddr)).to.be.equal(
+        await funderWalletBalanceAfter
+      );
+      expect(icb.payWithTokenInPresale(packageAmount, USDT_Address))
+        .to.emit(icb, "FundTransfer")
+        .withArgs(
+          owner,
+          packageAmount,
+          estimateAmt[1],
+          latestBlock.timestamp,
+          lockMonths,
+          vestingMonths,
+          await icb.currentSaleType()
+        );
+    });
+  });
+
+  describe("Config Public Sale", async function () {
+    it("Should not config pre sale, caller is not owner", async function () {
+      const { icb, latestBlock } = await deployment();
+      const [addr1, addr2] = await ethers.getSigners();
+
+      const setSaletype = 4;
+      const salePriceInDollar = 5000; //(0.0005)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStart = latestBlock.timestamp;
+      const saleEnd = saleStart + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      try {
+        await icb
+          .connect(addr2)
+          .configPrePublicSale(
+            setSaletype,
+            salePriceInDollar,
+            everyDayIncreasePrice,
+            saleStart,
+            saleEnd,
+            lockMonths,
+            vestingMonths
+          );
+        throw new ERROR("Not owner");
+      } catch (error) {
+        expect(error.message).to.include("You are not the Owner");
+      }
+    });
+
+    it("Should succesfully config public sale", async function () {
+      const { icb, latestBlock, saleEnd } = await deployment();
+
+      const setSaletype = 4;
+      const salePriceInDollar = 2000; //(0.0002)
+      const everyDayIncreasePrice = 100; //(0.00001)
+      const saleStarts = latestBlock.timestamp + 100;
+      const saleEnds = saleStarts + 100;
+      const lockMonths = 6;
+      const vestingMonths = 12;
+
+      await icb.resetSale();
+      await icb.configPrePublicSale(
+        setSaletype,
+        salePriceInDollar,
+        everyDayIncreasePrice,
+        saleStarts,
+        saleEnds,
+        lockMonths,
+        vestingMonths
+      );
+      expect(await icb.currentSaleType()).to.be.equal(4);
+      expect(await icb.saleStartTime()).to.be.greaterThan(
+        latestBlock.timestamp
+      );
+      expect(await icb.saleEndTime()).to.be.greaterThan(
+        await icb.saleStartTime()
+      );
     });
   });
 });
