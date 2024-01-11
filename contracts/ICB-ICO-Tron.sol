@@ -306,17 +306,19 @@ contract ICB_ICO_TRON is ReentrancyGuard {
         (estimatedToken, icbAmount) = estimateTokenFund(packageAmount);
         internalCheckUserBalanceAndAllowance(estimatedToken);
         uint256 exactBuyerIcbAmt;
+        uint256 bonousAmount;
+        bonousAmount = internalCalculateBonusAmount(packageAmount, icbAmount);
         if(isReferral){
             require(icbInvestors[referralAddress], "Referral Address not invested earlier");
             uint256 buyerActualICB = (icbAmount * 99)/100;
             uint256 referralAmount = icbAmount - buyerActualICB;
             userReferralReward[referralAddress] += referralAmount;
-            exactBuyerIcbAmt = buyerActualICB;
-            internalDeposit(msg.sender, packageAmount, buyerActualICB, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
+             exactBuyerIcbAmt = buyerActualICB + bonousAmount;
+            internalDeposit(msg.sender, packageAmount, exactBuyerIcbAmt, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }
         else{
-            exactBuyerIcbAmt = icbAmount;
-            internalDeposit(msg.sender, packageAmount, icbAmount, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
+            exactBuyerIcbAmt = icbAmount + bonousAmount;
+            internalDeposit(msg.sender, packageAmount, exactBuyerIcbAmt, icbDollarInPrePublic, block.timestamp, lockMonth, vestingMonth, currentSaleType);
         }
         internalSalePhaseAmount(icbAmount);
         calculatePerDayIcbDollar();    
@@ -332,6 +334,22 @@ contract ICB_ICO_TRON is ReentrancyGuard {
     }
     
     /**** Internal ****/
+
+    function internalCalculateBonusAmount(uint256 packageAmount, uint256 estimatedICB) internal pure returns(uint256){
+        if(packageAmount <= 100){
+            return (estimatedICB*1)/100;
+        }
+        else if(packageAmount > 100 && packageAmount <= 500){
+            return (estimatedICB*5)/100;
+        }
+        else if(packageAmount > 500 && packageAmount <= 1000){
+            return (estimatedICB*10)/100;
+        }
+        else{
+            return (estimatedICB*25)/100;
+        }
+     
+    }
 
     function internalSalePhaseAmount(uint256 icbAmount) internal {
         if(SaleType.privateSale == currentSaleType){
