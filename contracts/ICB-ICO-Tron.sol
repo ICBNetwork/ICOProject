@@ -73,7 +73,8 @@ contract ICB_ICO_TRON is ReentrancyGuard {
     event FundTransfer(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, uint256 investTime, uint256 lockMonthTime, uint256 linearVestingTime, SaleType currentSalePhase);
     event ConfigPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths);
     event UpdateLockAndVestingMonth(uint8 lockMonths, uint8 vestingMonths);
-    event ToggleSale(SaleType setSaletype);
+    event UpdateStartEndTime(uint256 startTime, uint256 endTime);
+    event ResetSale();
 
     modifier onlyOwner() {
         require(owner == msg.sender, "You are not the Owner");
@@ -117,15 +118,14 @@ contract ICB_ICO_TRON is ReentrancyGuard {
         require(amount != 0," Invalid input amount");
         _;
     }
-    
-    
+      
     /// @param funderWallet The wallet on which we are transfering the fund
     /// @param usdtAddress The usdt token from which user will pay
     /// @param tokenDecimals The token(usdt and usdc) decimal which required to calculate the fund, on the ETH(USDT and USDC is 6), BNB((USDT and USDC is 18), Matic((USDT and USDC is 6) 
     /// @param setSaletype To set the private sale type which is 1
     /// @param saleStart The private sale start time
     /// @param saleEnd The private sale end time
-    constructor(address funderWallet, address usdtAddress, uint8 tokenDecimals, SaleType setSaletype, uint256 saleStart, uint256 saleEnd) validAddress(funderWallet) validAddress(usdtAddress) {
+    constructor(address funderWallet, address usdtAddress, uint8 tokenDecimals, SaleType setSaletype, uint256 saleStart, uint256 saleEnd) validAddress(funderWallet) validAddress(usdtAddress) inputNumberCheck(tokenDecimals) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
         owner = msg.sender;
         funderAddress = funderWallet;
@@ -146,7 +146,17 @@ contract ICB_ICO_TRON is ReentrancyGuard {
     /// @notice This function is used by admin to update the user data who did the payment using card
     function addUserByAdmin(address[] memory userAddress, uint256[] memory packageAmount, uint256[] memory userIcbAmount, uint256[] memory icbInDollar, uint256[] memory investTime, uint8[] memory lockMonthTime, uint8[] memory linearVestingTime, SaleType[] memory currentSaleTypes) external onlyOwner returns(bool) {
         require(userAddress.length <= 100,"Adding more than 100 users at a time causing gas issue");
-        for(uint256 i=0; i <= userAddress.length; i++){
+        require(
+        userAddress.length == packageAmount.length &&
+        userAddress.length == userIcbAmount.length &&
+        userAddress.length == icbInDollar.length &&
+        userAddress.length == investTime.length &&
+        userAddress.length == lockMonthTime.length &&
+        userAddress.length == linearVestingTime.length &&
+        userAddress.length == currentSaleTypes.length,
+        "Input arrays must have the same length"
+    );
+        for(uint256 i=0; i < userAddress.length; i++){
         internalDeposit(userAddress[i], packageAmount[i], userIcbAmount[i], icbInDollar[i], investTime[i], lockMonthTime[i], linearVestingTime[i], currentSaleTypes[i]);
         }
         return true;
@@ -160,12 +170,30 @@ contract ICB_ICO_TRON is ReentrancyGuard {
         vestingMonth = vestingMonths;
         emit UpdateLockAndVestingMonth(lockMonths, vestingMonths);
     }
-
-    /// @notice To turn off/on the sale status
-    /// @param setSaleStatus To set sale off we have to pass: 0 and to open the sale pass the saleType as required : 1,2,3, and 4
-    function toggleSale(SaleType setSaleStatus) external onlyOwner {
-        currentSaleType = setSaleStatus;
-        emit ToggleSale(setSaleStatus);
+    
+    /// @notice To update the start and end time if need by owner
+    /// @param revisedStartTime The start time
+    /// @param revisedEndTime The end time
+    function updateStartEndTime(
+        uint256 revisedStartTime,
+        uint256 revisedEndTime
+    ) external onlyOwner {
+        require(revisedStartTime > block.timestamp && revisedEndTime > revisedStartTime ,"End time must be greater than start time");
+        saleStartTime = revisedStartTime;
+        saleEndTime = revisedEndTime;
+        emit UpdateStartEndTime(revisedStartTime, revisedEndTime);
+    }
+    
+    /// @notice To reset the sale if owner pass wrong data while configuring the sale
+    function resetSale() external onlyOwner {      
+        currentSaleType = SaleType.saleNotActive;
+        saleStartTime = 0;
+        saleEndTime = 0;
+        icbDollarInPrePublic = 0;
+        incrementPriceEveryDay =0;
+        lockMonth = 0;
+        vestingMonth =0;
+        emit ResetSale();
     }
     
     /// @notice To configure the pre(1 and 2) and public sale 
@@ -176,6 +204,7 @@ contract ICB_ICO_TRON is ReentrancyGuard {
     /// @param vestingMonths The vesting month accordingly
     function configPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths) external onlyOwner returns(bool) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
+        require(block.timestamp >= saleEndTime,"Previous sale is not ended");
         currentSaleType = setSaletype;
         icbDollarInPrePublic = salePriceInDollar;
         incrementPriceEveryDay =  everyDayIncreasePrice;
