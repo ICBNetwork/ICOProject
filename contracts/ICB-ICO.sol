@@ -221,11 +221,7 @@ contract ICB_ICO is ReentrancyGuard {
     /// @param vestingMonths The vesting month accordingly
     function configPrePublicSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint8 lockMonths, uint8 vestingMonths) external onlyOwner returns(bool) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
-<<<<<<< HEAD
-        require(block.timestamp > saleEndTime,"Previous sale is not ended");
-=======
         require(block.timestamp >= saleEndTime,"Previous sale is not ended");
->>>>>>> f7135405b40a2356761ff803b2f0f770ed3107b1
         currentSaleType = setSaletype;
         icbDollarInPrePublic = salePriceInDollar;
         incrementPriceEveryDay =  everyDayIncreasePrice;
