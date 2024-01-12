@@ -225,7 +225,6 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @param vestingMonthTime The vesting month accordingly
     function configSale(SaleType setSaletype, uint256 icbPriceInWei, uint256 everyDayIncreasePriceInWei, uint256 saleStart, uint256 saleEnd, uint8 lockMonthTime, uint8 vestingMonthTime) external onlyOwner returns(bool) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
-        require(block.timestamp >= saleEndTime,"Previous sale is not ended");
         currentSaleType = setSaletype;
         icbDollarInPrePublic = icbPriceInWei;
         incrementPriceEveryDay =  everyDayIncreasePriceInWei;
@@ -367,7 +366,6 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     ) internal {
         require(block.timestamp > saleStartTime && saleEndTime > block.timestamp," Sale is not started or sale is ended");
         if (currentSaleType == SaleType.privateSale) {
-            require(_userDeposits[userAddress].length < 1, "Already bought a package");
             require(amount == 1000 || amount == 5000 || amount == 10000 || amount == 30000 , "Invalid package amount for private sale" );
             Package memory privateSalePackage = packages[amount];
             uint256 icbAmount = (amount *10**18)/ privateSalePackage.icbPerDollar;        
