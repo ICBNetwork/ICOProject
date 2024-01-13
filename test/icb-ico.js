@@ -1218,7 +1218,7 @@ describe("ICB_ICO", async function () {
     });
   });
 
-  describe("Pay with token pre-sale1", async function () {
+  describe("Pay with token pre-sale2", async function () {
     it("Cannot pay with token, sale is paused", async function () {
       const { icb, USDT_Address } = await deployment();
       const [referalAddr] = await ethers.getSigners();
@@ -1404,7 +1404,7 @@ describe("ICB_ICO", async function () {
     });
   });
 
-  describe("Buy with native token ETH", async function () {
+  describe("Buy with native token ETH pre-sale2", async function () {
     it("Cannot pay with native token, sale is paused", async function () {
       const { icb, USDT_Address } = await deployment();
       const [referalAddr] = await ethers.getSigners();
@@ -1684,7 +1684,7 @@ describe("ICB_ICO", async function () {
     });
   });
 
-  describe("Pay with token pulic address ", async function () {
+  describe("Pay with token public sale ", async function () {
     it("Cannot pay with token, sale is paused", async function () {
       const { icb, USDT_Address } = await deployment();
       const [referalAddr] = await ethers.getSigners();
