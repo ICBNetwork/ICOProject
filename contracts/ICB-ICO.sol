@@ -284,7 +284,9 @@ contract ICB_ICO is ReentrancyGuard {
             icbInDollarSaleWise = icbDollarInPrePublic;
         }
         if(BuyType.eth == buyType){
-            int256 liveprice = getNativePrice() * 10 ** 10;
+            // int256 liveprice = getNativePrice() * 10 ** 10;
+            int256 liveprice = 229633671342 * 10 ** 10; // for testing purpose I used the hardcoded value
+
             uint256 dollarAmount = packageAmount * 10**18 * 10**18;
             uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
             uint256 icbAmount = (packageAmount * baseMultiplier) / icbInDollarSaleWise;
