@@ -32,7 +32,7 @@ contract USDT is IERC20 {
     uint8 public decimals = 6;
 
     constructor() {
-        mint(10000000000);
+        mint(1000000000000000);
     }
     function transfer(address recipient, uint amount) external returns (bool) {
         balanceOf[msg.sender] -= amount;
