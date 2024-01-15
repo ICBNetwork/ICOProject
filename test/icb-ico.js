@@ -311,7 +311,7 @@ describe("ICB_ICO", async function () {
       const [referalAddr] = await ethers.getSigners();
       const amount = 1000; //token amount
 
-      expect(await amount).to.be.greaterThanOrEqual(1);
+      expect(amount).to.be.greaterThanOrEqual(1);
     });
 
     it("Cannot pay with token, invalid address", async function () {
@@ -631,6 +631,7 @@ describe("ICB_ICO", async function () {
       const lockMonthTime = 6;
       const vestingMonthTime = 12;
 
+      const addr = await addr2.getAddress();
       try {
         await icb
           .connect(addr2)
@@ -644,7 +645,9 @@ describe("ICB_ICO", async function () {
             vestingMonthTime
           );
       } catch (error) {
-        expect(error.message).to.be.revertedWith("Owner is not caller");
+        expect(error.message).to.include(
+          `OwnableUnauthorizedAccount(${JSON.stringify(addr)})`
+        );
       }
     });
 
@@ -793,7 +796,7 @@ describe("ICB_ICO", async function () {
       const [referalAddr] = await ethers.getSigners();
       const packageAmount = 1000; //token amount
 
-      expect(await packageAmount).to.be.greaterThanOrEqual(1);
+      expect(packageAmount).to.be.greaterThanOrEqual(1);
     });
 
     it("Cannot pay with token, invalid address", async function () {
@@ -1089,7 +1092,7 @@ describe("ICB_ICO", async function () {
   describe("Config Pre-Sale2", async function () {
     it("Cannot config pre-sale2, caller is not owner", async function () {
       const { icb, latestBlock } = await deployment();
-      const [addr1, add2] = await ethers.getSigners();
+      const [addr1, addr2] = await ethers.getSigners();
       const saletype = 3;
       const icbPriceInWei = 300000000000000;
       const everyDayIncreasePriceInWei = 10000000000000;
@@ -1098,6 +1101,7 @@ describe("ICB_ICO", async function () {
       const lockMonthTime = 6;
       const vestingMonthTime = 6;
 
+      const addr = await addr2.getAddress();
       try {
         await icb
           .connect(addr2)
@@ -1111,7 +1115,9 @@ describe("ICB_ICO", async function () {
             vestingMonthTime
           );
       } catch (error) {
-        expect(error.message).to.be.revertedWith("Owner is not caller");
+        expect(error.message).to.be.revertedWith(
+          `OwnableUnauthorizedAccount(${JSON.stringify(addr)})`
+        );
       }
     });
 
@@ -1259,7 +1265,7 @@ describe("ICB_ICO", async function () {
       const [referalAddr] = await ethers.getSigners();
       const packageAmount = 1000; //token amount
 
-      expect(await packageAmount).to.be.greaterThanOrEqual(1);
+      expect(packageAmount).to.be.greaterThanOrEqual(1);
     });
 
     it("Cannot pay with token, invalid address", async function () {
@@ -1534,7 +1540,7 @@ describe("ICB_ICO", async function () {
       expect(await icb.currentSaleType()).to.be.equal(3);
       const estimateAmt = await icb.estimateFund(packageAmount, 0);
       const tokenAmount = estimateAmt[0];
-
+      const userIcbAmount = await estimateAmt[1];
       expect(await provider.getBalance(owner)).to.be.greaterThanOrEqual(
         tokenAmount
       );
@@ -1544,7 +1550,10 @@ describe("ICB_ICO", async function () {
       await icb.buyWithNative(packageAmount, referalAddr, {
         value: tokenAmount,
       });
+      const getUserData = await icb.getUserDetails(owner);
       const funderAddrBalAfter = await provider.getBalance(funderAddr);
+
+      expect(await userIcbAmount).to.be.equal(await getUserData[0][1]);
       expect(await funderAddrBalAfter).to.be.greaterThan(funderAddrBalBefore);
       expect(await funderAddrBalAfter).to.be.equal(
         funderAddrBalBefore + tokenAmount
@@ -1555,7 +1564,7 @@ describe("ICB_ICO", async function () {
   describe("Config Public Sale", async function () {
     it("Cannot config public sale, caller is not owner", async function () {
       const { icb, latestBlock } = await deployment();
-      const [addr1, add2] = await ethers.getSigners();
+      const [addr1, addr2] = await ethers.getSigners();
       const saletype = 4;
       const icbPriceInWei = 500000000000000;
       const everyDayIncreasePriceInWei = 10000000000000;
@@ -1564,6 +1573,7 @@ describe("ICB_ICO", async function () {
       const lockMonthTime = 6;
       const vestingMonthTime = 12;
 
+      const addr = await addr2.getAddress();
       try {
         await icb
           .connect(addr2)
@@ -1577,7 +1587,9 @@ describe("ICB_ICO", async function () {
             vestingMonthTime
           );
       } catch (error) {
-        expect(error.message).to.be.revertedWith("Owner is not caller");
+        expect(error.message).to.be.revertedWith(
+          `OwnableUnauthorizedAccount(${JSON.stringify(addr)})`
+        );
       }
     });
 
@@ -1725,7 +1737,7 @@ describe("ICB_ICO", async function () {
       const [referalAddr] = await ethers.getSigners();
       const packageAmount = 1000; //token amount
 
-      expect(await packageAmount).to.be.greaterThanOrEqual(1);
+      expect(packageAmount).to.be.greaterThanOrEqual(1);
     });
 
     it("Cannot pay with token, invalid address", async function () {
@@ -1868,6 +1880,54 @@ describe("ICB_ICO", async function () {
       expect(await funderAddrBalAfter).to.be.greaterThan(funderAddrBalBefore);
       expect(await funderAddrBalAfter).to.be.equal(tokenAmount);
     });
+
+    it("Should check referral bonus amount", async function () {
+      const { icb, USDT_Address, owner, usdt, funderAddr, latestBlock } =
+        await deployment();
+      await icb.resetSale();
+
+      const [referalAddr, addr2] = await ethers.getSigners();
+      const packageAmount = 2000; //token amount
+
+      const saletype = 4;
+      const icbPriceInWei = 500000000000000;
+      const everyDayIncreasePriceInWei = 10000000000000;
+      const saleStarts = latestBlock.timestamp + 10;
+      const saleEnds = saleStarts + 50;
+      const lockMonthTime = 6;
+      const vestingMonthTime = 12;
+
+      await icb.configSale(
+        saletype,
+        icbPriceInWei,
+        everyDayIncreasePriceInWei,
+        saleStarts,
+        saleEnds,
+        lockMonthTime,
+        vestingMonthTime
+      );
+
+      const estimateAmt = await icb.estimateFund(packageAmount, 1);
+      const tokenAmount = estimateAmt[0];
+      expect(await icb.currentSaleType()).to.equal(4);
+      expect(await usdt.balanceOf(owner)).to.be.greaterThanOrEqual(tokenAmount);
+      // tokenAmount = await tokenAmount * 2
+      await usdt.approve(icb, tokenAmount + tokenAmount);
+      expect(await usdt.allowance(owner, icb)).to.equal(tokenAmount + tokenAmount);
+
+      await time.increaseTo(saleStarts);
+      await icb.buyWithToken(packageAmount, USDT_Address, referalAddr);
+
+      const currentRefferal = await owner;
+      await icb.buyWithToken(packageAmount, USDT_Address, currentRefferal);
+
+      const getUserData = await icb.getUserDetails(owner);
+      const comission = (packageAmount * 10 ** 18) / icbPriceInWei;
+      const com = (comission * 100) / 10000;
+
+      expect(await getUserData[1][1]).to.equal(com);
+      expect(await getUserData[1][6]).to.equal("Referral");
+    })
   });
 
   describe("Buy with native token ETH public sale", async function () {
@@ -1956,7 +2016,6 @@ describe("ICB_ICO", async function () {
       expect(await icb.currentSaleType()).to.be.equal(4);
       const estimateAmt = await icb.estimateFund(packageAmount, 0);
       const tokenAmount = estimateAmt[0];
-
       expect(await provider.getBalance(owner)).to.be.greaterThanOrEqual(
         tokenAmount
       );
@@ -1967,6 +2026,9 @@ describe("ICB_ICO", async function () {
         value: tokenAmount,
       });
       const funderAddrBalAfter = await provider.getBalance(funderAddr);
+      const getUserData = await icb.getUserDetails(owner);
+
+      expect(packageAmount).to.be.equal(getUserData[0][0]);
       expect(await funderAddrBalAfter).to.be.greaterThan(funderAddrBalBefore);
       expect(await funderAddrBalAfter).to.be.equal(
         funderAddrBalBefore + tokenAmount
@@ -2010,32 +2072,202 @@ describe("ICB_ICO", async function () {
       await icb.buyWithNative(packageAmount, referalAddr, {
         value: tokenAmount,
       });
+
       const funderAddrBalAfter = await provider.getBalance(funderAddr);
       expect(await funderAddrBalAfter).to.be.greaterThan(funderAddrBalBefore);
       expect(await funderAddrBalAfter).to.be.equal(
         funderAddrBalBefore + tokenAmount
       );
     });
+
+    it("Should check refferal bonus amount", async function () {
+      const { icb, owner, funderAddr, saleStart, provider, latestBlock } =
+        await deployment();
+      const [referalAddr, addr2] = await ethers.getSigners();
+      const packageAmount = 2500; //token amount
+
+      const saletype = 4;
+      const icbPriceInWei = 500000000000000;
+      const everyDayIncreasePriceInWei = 10000000000000;
+      const saleStarts = latestBlock.timestamp + 10;
+      const saleEnds = saleStarts + 50;
+      const lockMonthTime = 6;
+      const vestingMonthTime = 12;
+
+      await icb.configSale(
+        saletype,
+        icbPriceInWei,
+        everyDayIncreasePriceInWei,
+        saleStarts,
+        saleEnds,
+        lockMonthTime,
+        vestingMonthTime
+      );
+
+      expect(await icb.currentSaleType()).to.be.equal(4);
+      const estimateAmt = await icb.estimateFund(packageAmount, 0);
+      const tokenAmount = estimateAmt[0];
+
+      expect(await provider.getBalance(owner)).to.be.greaterThanOrEqual(
+        tokenAmount
+      );
+      const funderAddrBalBefore = await provider.getBalance(funderAddr);
+
+      await time.increaseTo(saleStart);
+      await icb.buyWithNative(packageAmount, referalAddr, {
+        value: tokenAmount,
+      });
+      const currentRefferal = owner;
+      await icb.connect(addr2).buyWithNative(packageAmount, currentRefferal, {
+        value: tokenAmount,
+      });
+      const getUserData = await icb.getUserDetails(owner);
+
+      const comission = (packageAmount * 10 ** 18) / icbPriceInWei;
+      const com = (comission * 100) / 10000;
+
+      expect(await getUserData[1][1]).to.be.equal(com);
+      expect(await getUserData[1][6]).to.be.equal("Referral");
+    });
   });
 
   describe("Toggle Sale Pause Unpause", async function () {
     it("Should not pause sale, Caller is not owner", async function () {
-        const { icb } = await deployment();
-        const [addr1, addr2] = await ethers.getSigners()
-        try {
-            await icb.connect(addr2).toggleSale()
-            throw new Error("Not owner")
-        } catch (error) {
-            expect(error.message).to.be.revertedWith("Caller is not owner")
-        }
-    })
+      const { icb } = await deployment();
+      const [addr1, addr2] = await ethers.getSigners();
+      const addr = await addr2.getAddress();
+      try {
+        await icb.connect(addr2).toggleSale();
+        throw new Error("Not owner");
+      } catch (error) {
+        expect(error.message).to.include(
+          `OwnableUnauthorizedAccount(${JSON.stringify(addr)})`
+        );
+      }
+    });
 
     it("Should succesfuly pause sale", async function () {
-        const { icb } = await deployment();
+      const { icb } = await deployment();
 
-        await icb.toggleSale()
+      await icb.toggleSale();
 
-        expect(await icb.isPause()).to.be.equal(false);
-    })
-  })
+      expect(await icb.isPause()).to.be.equal(false);
+    });
+  });
+
+  describe("Add user by admin", async function () {
+    it("Cannot add user, Caller is not owner", async function () {
+      const { icb, latestBlock } = await deployment();
+
+      const currentTime = latestBlock.timestamp;
+      const [addr1, addr2] = await ethers.getSigners();
+      const userAddress = [addr1, addr2];
+      const packageAmount = [1000, 2000];
+      const userIcbAmount = [10000, 20000];
+      const icbInDollar = [200000000000000, 200000000000000]; //0.0002 in wei
+      const investTime = [currentTime, currentTime];
+      const lockMonthTime = [6, 6];
+      const linearVestingTime = [6, 6];
+      const currentSaleTypes = [4, 4];
+      const addr = await addr2.getAddress();
+
+      try {
+        await icb
+          .connect(addr2)
+          .addUserByAdmin(
+            userAddress,
+            packageAmount,
+            userIcbAmount,
+            icbInDollar,
+            investTime,
+            lockMonthTime,
+            linearVestingTime,
+            currentSaleTypes
+          );
+        throw new Error("Not owner");
+      } catch (error) {
+        expect(error.message).to.include(
+          `OwnableUnauthorizedAccount(${JSON.stringify(addr)})`
+        );
+      }
+    });
+
+    it("Should succesfully set owner", async function () {
+      const { icb, owner } = await deployment();
+
+      expect(await icb.owner()).to.be.equal(owner);
+    });
+
+    it("Cannot add user, invalid data length", async function () {
+      const { icb, latestBlock } = await deployment();
+
+      const currentTime = latestBlock.timestamp;
+      const [addr1, addr2] = await ethers.getSigners();
+      const userAddress = [addr1, addr2];
+      const packageAmount = [1000, 2000];
+      const userIcbAmount = [10000, 20000];
+      const icbInDollar = [200000000000000]; //0.0002 in wei
+      const investTime = [currentTime, currentTime];
+      const lockMonthTime = [6, 6];
+      const linearVestingTime = [6, 6];
+      const currentSaleTypes = [4, 4];
+      const addr = await addr2.getAddress();
+
+      try {
+        await icb.addUserByAdmin(
+          userAddress,
+          packageAmount,
+          userIcbAmount,
+          icbInDollar,
+          investTime,
+          lockMonthTime,
+          linearVestingTime,
+          currentSaleTypes
+        );
+        throw new Error("invalid data length");
+      } catch (error) {
+        expect(error.message).to.include(
+          "Input arrays must have the same length"
+        );
+      }
+    });
+
+    it("Should succesfully add user data", async function () {
+      const { icb, latestBlock, owner } = await deployment();
+
+      const currentTime = latestBlock.timestamp;
+      const [addr1, addr2] = await ethers.getSigners();
+      const userAddress = [addr1, addr2];
+      const packageAmount = [1000, 2000];
+      const userIcbAmount = [10000, 20000];
+      const icbInDollar = [200000000000000, 200000000000000]; //0.0002 in wei
+      const investTime = [currentTime, currentTime];
+      const lockMonthTime = [6, 6];
+      const linearVestingTime = [6, 6];
+      const currentSaleTypes = ["Public sale", "Public sale"];
+      const addr = await addr2.getAddress();
+      expect(await icb.owner()).to.be.equal(await owner);
+
+      await icb.addUserByAdmin(
+        userAddress,
+        packageAmount,
+        userIcbAmount,
+        icbInDollar,
+        investTime,
+        lockMonthTime,
+        linearVestingTime,
+        currentSaleTypes
+      );
+
+      // User2 data check
+      const getUserData = await icb.getUserDetails(addr2);
+      expect(packageAmount[1]).to.be.equal(await getUserData[0][0]);
+      expect(userIcbAmount[1]).to.be.equal(await getUserData[0][1]);
+      expect(icbInDollar[1]).to.be.equal(await getUserData[0][2]);
+      expect(await investTime[1]).to.be.equal(await getUserData[0][3]);
+      expect(lockMonthTime[1]).to.be.equal(await getUserData[0][4]);
+      expect(linearVestingTime[1]).to.be.equal(await getUserData[0][5]);
+      expect(currentSaleTypes[1]).to.be.equal(await getUserData[0][6]);
+    });
+  });
 });
