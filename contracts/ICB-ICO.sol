@@ -401,9 +401,9 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
                 _bonus = (_amountToBuy * 1) / 100; // 1%bonus
             } else if (amount > 500 && amount <= 2000) {
                 _bonus = (_amountToBuy * 2) / 100; //2% bonus
-            } else if ( amount > 2000 && amount < 10000) {
+            } else if ( amount > 2000 && amount <= 10000) {
                 _bonus = (_amountToBuy * 3) / 100; //3% bonus
-            } else if (amount >= 10000 && amount <= 20000) {
+            } else if (amount > 10000 && amount <= 20000) {
                 _bonus = (_amountToBuy * 5) / 100; //5% bonus
             }else if (amount > 20000) {
                 _bonus = (_amountToBuy * 10) / 100; //10% bonus
