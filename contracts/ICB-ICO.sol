@@ -54,7 +54,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public vestingMonths; // We are storing this for pre(1,2) and public sale
     bool public isPause;
     
-    uint256 constant REFFERAL_COMMISSION = 50_000; // 5% commisson
+    uint256 constant REFFERAL_COMMISSION = 5; // 5% commisson
     enum BuyType {
         eth,
         token
@@ -394,19 +394,19 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
             uint256 _commission = 0;
             uint256 _bonus = 0;
             if (icbInvestors[referralAddress]) {
-                _commission = (_amountToBuy * 100) / REFFERAL_COMMISSION; //calculating referral 5%
+                _commission = (_amountToBuy * REFFERAL_COMMISSION) / 100; //calculating referral 5%
                 internalDeposit(referralAddress, 0, _commission, 0, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Referral");
             } 
             if (amount >= 100 && amount <= 500) {
-                _bonus = (_amountToBuy * 100) / 10_000; // 1%bonus
+                _bonus = (_amountToBuy * 1) / 100; // 1%bonus
             } else if (amount > 500 && amount <= 2000) {
-                _bonus = (_amountToBuy * 500) / 20_000; //2% bonus
+                _bonus = (_amountToBuy * 2) / 100; //2% bonus
             } else if ( amount > 2000 && amount < 10000) {
-                _bonus = (_amountToBuy * 1000) / 30_000; //3% bonus
+                _bonus = (_amountToBuy * 3) / 100; //3% bonus
             } else if (amount >= 10000 && amount <= 20000) {
-                _bonus = (_amountToBuy * 2500) / 50_000; //5% bonus
+                _bonus = (_amountToBuy * 5) / 100; //5% bonus
             }else if (amount > 20000) {
-                _bonus = (_amountToBuy * 2500) / 100_000; //10% bonus
+                _bonus = (_amountToBuy * 10) / 100; //10% bonus
             }
             _amountToBuy = (_amountToBuy - _commission) + _bonus;
             internalDeposit(userAddress, amount, _amountToBuy, currentPrice, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Public sale");
