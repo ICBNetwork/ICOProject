@@ -463,7 +463,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public vestingMonths; // We are storing this for pre(1,2) and public sale
     bool public isActive;
     
-    uint256 constant REFFERAL_COMMISSION = 5; // 5% commisson
+    uint256 constant REFERRAL_COMMISSION = 5; // 5% commisson
     uint256 constant ICB_DECIMALS = 10**18; 
     
     enum BuyType {
@@ -778,7 +778,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
             uint256 _commission = 0;
             uint256 _bonus = 0;
             if (icbInvestors[referralAddress]) {
-                _commission = (_amountToBuy * REFFERAL_COMMISSION) / 100; //calculating referral 5%
+                _commission = (_amountToBuy * REFERRAL_COMMISSION) / 100; //calculating referral 5%
                 internalDeposit(referralAddress, 0, _commission, 0, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Referral");
             } 
             if (amount >= 100 && amount <= 500) {
