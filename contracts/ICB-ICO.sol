@@ -639,7 +639,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @param tokenAmount The exact amount which is availabe on contract address, we have to pass tokenAmount in wei
     function getTokenFromContract(address tokenAddress, uint256 tokenAmount) external onlyOwner returns(bool){
         IERC20 token = IERC20(tokenAddress);
-        require(token.balanceOf(address(this)) >= tokenAmount, "Insufficient token on contract");
+        userTokenBalanceCheck(token, address(this), tokenAmount);
         token.safeTransfer(_icoConfig.fundingWallet, tokenAmount);
         return true;
     }
@@ -710,7 +710,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         uint256 estimatedToken;
         uint256 icbAmount;
         (estimatedToken, icbAmount) = estimateFund(amount, tokenAddress, BuyType.token);
-        require(token.balanceOf(msg.sender) >= estimatedToken, "Insufficient user token balance");
+        userTokenBalanceCheck(token, msg.sender, estimatedToken);
         require(token.allowance(msg.sender, address(this)) >= estimatedToken,"Insufficient allowance");
         uint256 amountToBuy = amount;
         updateDepositState(amountToBuy, msg.sender, referralAddress);
@@ -807,6 +807,10 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         if(!icbInvestors[userAddress]){
             icbInvestors[userAddress] = true;
         }
+    }
+
+    function userTokenBalanceCheck(IERC20 tokenAddress, address userAddress, uint256 tokenAmount) internal view {
+        require(tokenAddress.balanceOf(userAddress) >= tokenAmount, "Insufficient token balance");
     }
 
     function getTimestampOfNextDate() internal {
