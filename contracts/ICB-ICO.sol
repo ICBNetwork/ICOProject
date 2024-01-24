@@ -461,6 +461,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public incrementPriceEveryDay; // code is configure like 100 == 0.00001 , 1000 == 0.0001
     uint256 public lockPeriod; // We are storing this for pre(1,2) and public sale
     uint256 public vestingPeriod; // We are storing this for pre(1,2) and public sale
+    uint256 private updateInterval = 1 days;
     bool public isActive;
     
     uint256 constant REFERRAL_COMMISSION = 5; // 5% commission
@@ -827,7 +828,8 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
 
     function calculatePerDayIcbDollar() internal  {   
         if(nextDateTimestamp <= block.timestamp) {
-            icbDollarInPrePublic += incrementPriceEveryDay;
+            uint256 daysPassed = (block.timestamp - nextDateTimestamp) / updateInterval;
+            icbDollarInPrePublic = icbDollarInPrePublic + (incrementPriceEveryDay * daysPassed) ;
             getTimestampOfNextDate();
         }
     }
@@ -850,5 +852,4 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         }
         return size > 0;
     }
-    
 }
