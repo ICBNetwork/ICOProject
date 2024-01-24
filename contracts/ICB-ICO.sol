@@ -726,10 +726,14 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         uint256 estimatedNative;
         uint256 icbAmount;
         (estimatedNative, icbAmount) = estimateFund(amount, address(0), BuyType.eth);  // here I just pass the a token address just for fullfill the token param in estimateFund function
-        require(msg.value == estimatedNative, "Insufficient Native value");
+        require(msg.value >= estimatedNative, "Insufficient Native value");
         updateDepositState(amount, msg.sender, referralAddress);
         calculatePerDayIcbDollar();
-        Address.sendValue(payable(_icoConfig.fundingWallet), msg.value);
+        if(msg.value > estimatedNative){
+            uint256 userExtraCoin = msg.value - estimatedNative;
+            Address.sendValue(payable(msg.sender), userExtraCoin);
+        }
+        Address.sendValue(payable(_icoConfig.fundingWallet), estimatedNative);
         emit BuyWithNative(msg.sender, estimatedNative, icbAmount, currentSaleType);
         return true;
     }
