@@ -463,7 +463,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public vestingMonths; // We are storing this for pre(1,2) and public sale
     bool public isActive;
     
-    uint256 constant REFERRAL_COMMISSION = 5; // 5% commisson
+    uint256 constant REFERRAL_COMMISSION = 5; // 5% commission
     uint256 constant ICB_DECIMALS = 10**18; 
     
     enum BuyType {
@@ -513,7 +513,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         require(amount >= 1 ," Invalid input amount");
         _;
     }
-    modifier notActivated() {
+    modifier notPaused() {
         require(isActive, "Sale is paused.");
         _;
     }
@@ -649,7 +649,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @notice To calculate the estimate fund 
     /// @param packageAmount The package amount in usd which is used to calculate the native, ICB, token(USDT,USDC) 
     /// @param buyType The buy type
-    function estimateFund(uint256 packageAmount, address tokenAddress, BuyType buyType) public view nonZero(packageAmount) notActivated returns(uint256, uint256){
+    function estimateFund(uint256 packageAmount, address tokenAddress, BuyType buyType) public view nonZero(packageAmount) notPaused returns(uint256, uint256){
         require(SaleType.saleNotActive != currentSaleType, "Sale is not active");
         uint256 icbInDollarSaleWise;
         if(currentSaleType == SaleType.privateSale){
@@ -688,7 +688,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @param referralAddress The added which is must be icb investor otherwise we are calculating the referral fee
     function buyWithToken(uint256 amount, address tokenAddress, address referralAddress) external
         nonReentrant
-        notActivated
+        notPaused
         nonZero(amount)
         onlyEoA(msg.sender)
         validAddress(referralAddress)
@@ -716,7 +716,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         external
         payable
         nonReentrant
-        notActivated
+        notPaused
         onlyEoA(msg.sender)
         isNativeTokenAvailable
         nonZero(amount)
