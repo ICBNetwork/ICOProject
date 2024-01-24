@@ -494,18 +494,6 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     event ToggleSale();
     event ResetSale();
 
-    modifier onlyAllowed(address tokenAddress) {
-        bool exists = false;
-        for (uint256 i = 0; i < _icoConfig.tokenAddresses.length; i++) {
-            if (_icoConfig.tokenAddresses[i] == tokenAddress) {
-                exists = true;
-                break;
-            }
-        }
-        require(exists, "This currency is not supported in ICO");
-        _;
-    }
-
     modifier isNativeTokenAvailable() {
         require(_icoConfig.isNativeAllowed, "This token is not available");
         _;
@@ -661,7 +649,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @notice To calculate the estimate fund 
     /// @param packageAmount The package amount in usd which is used to calculate the native, ICB, token(USDT,USDC) 
     /// @param buyType The buy type
-    function estimateFund(uint256 packageAmount, address tokenAddress, BuyType buyType) public view nonZero(packageAmount) notActivated onlyAllowed(tokenAddress) returns(uint256, uint256){
+    function estimateFund(uint256 packageAmount, address tokenAddress, BuyType buyType) public view nonZero(packageAmount) notActivated returns(uint256, uint256){
         require(SaleType.saleNotActive != currentSaleType, "Sale is not active");
         uint256 icbInDollarSaleWise;
         if(currentSaleType == SaleType.privateSale){
@@ -679,6 +667,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
             return (ethInDollar, icbAmount);
         }
         else{
+            allowedTokenCheck(tokenAddress);
             IERC20 token = IERC20(tokenAddress);
             uint8 tokenDecimal = token.decimals();
             uint256 tokenAmount = packageAmount * (10**tokenDecimal);
@@ -703,9 +692,9 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         nonZero(amount)
         onlyEoA(msg.sender)
         validAddress(referralAddress)
-        onlyAllowed(tokenAddress)
         returns (bool)
-    {
+    {   
+        allowedTokenCheck(tokenAddress);
         IERC20 token = IERC20(tokenAddress);
         uint256 estimatedToken;
         uint256 icbAmount;
@@ -736,7 +725,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     {
         uint256 estimatedNative;
         uint256 icbAmount;
-        (estimatedNative, icbAmount) = estimateFund(amount, _icoConfig.tokenAddresses[0], BuyType.eth);  // here I just pass the a token address just for fullfill the token param in estimateFund function
+        (estimatedNative, icbAmount) = estimateFund(amount, address(0), BuyType.eth);  // here I just pass the a token address just for fullfill the token param in estimateFund function
         require(msg.value == estimatedNative, "Insufficient Native value");
         updateDepositState(amount, msg.sender, referralAddress);
         calculatePerDayIcbDollar();
@@ -811,6 +800,17 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
 
     function userTokenBalanceCheck(IERC20 tokenAddress, address userAddress, uint256 tokenAmount) internal view {
         require(tokenAddress.balanceOf(userAddress) >= tokenAmount, "Insufficient token balance");
+    }
+
+    function allowedTokenCheck(address tokenAddress) internal view {
+        bool exists = false;
+        for (uint256 i = 0; i < _icoConfig.tokenAddresses.length; i++) {
+            if (_icoConfig.tokenAddresses[i] == tokenAddress) {
+                exists = true;
+                break;
+            }
+        }
+        require(exists, "This currency is not supported in ICO");
     }
 
     function getTimestampOfNextDate() internal {
