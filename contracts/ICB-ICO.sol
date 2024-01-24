@@ -653,7 +653,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         require(SaleType.saleNotActive != currentSaleType, "Sale is not active");
         uint256 icbInDollarSaleWise;
         if(currentSaleType == SaleType.privateSale){
-            require(packageAmount == 1000 || packageAmount == 5000 || packageAmount == 10000 || packageAmount == 30000 , "Invalid package amount for private sale" );
+            privateSalePackageCheck(packageAmount);
             icbInDollarSaleWise = packages[packageAmount].icbPerDollar;
         }
         if(currentSaleType == SaleType.preSale1 || currentSaleType == SaleType.preSale2 || currentSaleType == SaleType.publicSale){
@@ -747,7 +747,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     ) internal {
         require(block.timestamp > saleStartTime && saleEndTime > block.timestamp," Sale is not started or sale is ended");
         if (currentSaleType == SaleType.privateSale) {
-            require(amount == 1000 || amount == 5000 || amount == 10000 || amount == 30000 , "Invalid package amount for private sale" );
+            privateSalePackageCheck(amount);
             Package memory privateSalePackage = packages[amount];
             uint256 icbAmount = (amount *ICB_DECIMALS)/ privateSalePackage.icbPerDollar;        
             internalDeposit(userAddress, amount, icbAmount, privateSalePackage.icbPerDollar, block.timestamp, (privateSalePackage.lockMonthTime*30) * 1 days, (privateSalePackage.linearVestingTime*30) * 1 days, "Private sale");
@@ -800,6 +800,10 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         if(!icbInvestors[userAddress]){
             icbInvestors[userAddress] = true;
         }
+    }
+
+    function privateSalePackageCheck(uint256 amount) internal pure {
+        require(amount == 1000 || amount == 5000 || amount == 10000 || amount == 30000 , "Invalid package amount for private sale" );
     }
 
     function userTokenBalanceCheck(IERC20 tokenAddress, address userAddress, uint256 tokenAmount) internal view {
