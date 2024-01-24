@@ -462,6 +462,12 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public lockPeriod; // We are storing this for pre(1,2) and public sale
     uint256 public vestingPeriod; // We are storing this for pre(1,2) and public sale
     uint256 private updateInterval = 1 days;
+    uint256 constant PACKAGE_ONE_AMOUNT = 1000;
+    uint256 constant PACKAGE_TWO_AMOUNT = 5000;
+    uint256 constant PACKAGE_THREE_AMOUNT = 10000;
+    uint256 constant PACKAGE_FOUR_AMOUNT = 30000;
+
+
     bool public isActive;
     
     uint256 constant REFERRAL_COMMISSION = 5; // 5% commission
@@ -539,10 +545,10 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         saleStartTime = saleStart;
         saleEndTime = saleEnd;
         isActive = true;
-        addPackage(1000, 200_000_000_000_000, 6, 6);  // 0.0002 ether
-        addPackage(5000, 180_000_000_000_000, 6, 3);  // 0.00018 ether
-        addPackage(10000, 150_000_000_000_000, 3, 3); // 0.00015 ether
-        addPackage(30000, 100_000_000_000_000, 1, 3); // 0.0001 ether
+        addPackage(PACKAGE_ONE_AMOUNT, 200_000_000_000_000, 6, 6);  // 0.0002 ether
+        addPackage(PACKAGE_TWO_AMOUNT, 180_000_000_000_000, 6, 3);  // 0.00018 ether
+        addPackage(PACKAGE_THREE_AMOUNT, 150_000_000_000_000, 3, 3); // 0.00015 ether
+        addPackage(PACKAGE_FOUR_AMOUNT, 100_000_000_000_000, 1, 3); // 0.0001 ether
     }
 
     /**** OnlyOwner ****/
@@ -806,7 +812,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     }
 
     function privateSalePackageCheck(uint256 amount) internal pure {
-        require(amount == 1000 || amount == 5000 || amount == 10000 || amount == 30000 , "Invalid package amount for private sale" );
+        require(amount == PACKAGE_ONE_AMOUNT || amount == PACKAGE_TWO_AMOUNT || amount == PACKAGE_THREE_AMOUNT || amount == PACKAGE_FOUR_AMOUNT , "Invalid package amount for private sale" );
     }
 
     function allowedTokenCheck(address tokenAddress) internal view {
