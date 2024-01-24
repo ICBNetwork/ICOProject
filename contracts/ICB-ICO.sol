@@ -459,8 +459,8 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     uint256 public nextDateTimestamp;
     uint256 public icbDollarInPrePublic; // This price will update per day basic
     uint256 public incrementPriceEveryDay; // code is configure like 100 == 0.00001 , 1000 == 0.0001
-    uint256 public lockMonths; // We are storing this for pre(1,2) and public sale
-    uint256 public vestingMonths; // We are storing this for pre(1,2) and public sale
+    uint256 public lockPeriod; // We are storing this for pre(1,2) and public sale
+    uint256 public vestingPeriod; // We are storing this for pre(1,2) and public sale
     bool public isActive;
     
     uint256 constant REFERRAL_COMMISSION = 5; // 5% commission
@@ -487,9 +487,9 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
 
     event BuyWithToken(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, SaleType currentSalePhase);
     event BuyWithNative(address indexed user, uint256 packageAmounts, uint256 userIcbAmounts, SaleType currentSalePhase);
-    event ConfigSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint256 lockMonths, uint256 vestingMonths);
+    event ConfigSale(SaleType setSaletype, uint256 salePriceInDollar, uint256 everyDayIncreasePrice, uint256 saleStart, uint256 saleEnd, uint256 lockPeriod, uint256 vestingPeriod);
     event AddUserByAdmin(address[] indexed userAddress, uint256[] packageAmount, uint256[] userIcbAmount, uint256[] icbInDollar, uint256[] investTime, uint256[] lockMonthTime, uint256[] linearVestingTime, string[] currentSaleTypes);
-    event UpdateLockAndVestingMonth(uint256 lockMonths, uint256 vestingMonths);
+    event UpdateLockAndVestingMonth(uint256 lockPeriod, uint256 vestingPeriod);
     event UpdateStartEndTime(uint256 startTime, uint256 endTime);
     event ToggleSale();
     event ResetSale();
@@ -547,12 +547,12 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /**** OnlyOwner ****/
     
     /// @notice To update the lock and vesting time by owner
-    /// @param lockMonthTime The lock month time which is going to use in pre1, pre2, and public sale
-    /// @param vestingMonthTime The vesting month time which is going to use in pre1, pre2, and public sale
-    function updateLockAndVestingMonth(uint256 lockMonthTime, uint256 vestingMonthTime) external onlyOwner {
-        lockMonths = lockMonthTime;
-        vestingMonths = vestingMonthTime;
-        emit UpdateLockAndVestingMonth(lockMonthTime, vestingMonthTime);
+    /// @param lockMonths The lock month time which is going to use in pre1, pre2, and public sale
+    /// @param vestingMonths The vesting month time which is going to use in pre1, pre2, and public sale
+    function updateLockAndVestingMonth(uint256 lockMonths, uint256 vestingMonths) external onlyOwner {
+        lockPeriod = lockMonths;
+        vestingPeriod = vestingMonths;
+        emit UpdateLockAndVestingMonth(lockMonths, vestingMonths);
     }
 
     /// @notice To update the start and end time if need by owner
@@ -595,8 +595,8 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         icbDollarInPrePublic = 0;
         incrementPriceEveryDay =0;
         nextDateTimestamp = 0;
-        lockMonths = 0;
-        vestingMonths =0;
+        lockPeriod = 0;
+        vestingPeriod =0;
         emit ResetSale();
     }
     
@@ -606,19 +606,19 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @param everyDayIncreasePriceInWei The everyday increase price in wei
     /// @param saleStart The sale start time
     /// @param saleEnd The sale end time
-    /// @param lockMonthTime The lock month accordingly 
-    /// @param vestingMonthTime The vesting month accordingly
-    function configSale(SaleType setSaletype, uint256 icbPriceInWei, uint256 everyDayIncreasePriceInWei, uint256 saleStart, uint256 saleEnd, uint256 lockMonthTime, uint256 vestingMonthTime) external onlyOwner returns(bool) {
+    /// @param lockMonths The lock month accordingly 
+    /// @param vestingMonths The vesting month accordingly
+    function configSale(SaleType setSaletype, uint256 icbPriceInWei, uint256 everyDayIncreasePriceInWei, uint256 saleStart, uint256 saleEnd, uint256 lockMonths, uint256 vestingMonths) external onlyOwner returns(bool) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
         currentSaleType = setSaletype;
         icbDollarInPrePublic = icbPriceInWei;
         incrementPriceEveryDay =  everyDayIncreasePriceInWei;
         saleStartTime = saleStart;
         saleEndTime = saleEnd;
-        lockMonths = lockMonthTime;
-        vestingMonths = vestingMonthTime;
+        lockPeriod = lockMonths;
+        vestingPeriod = vestingMonths;
         getTimestampOfNextDate();
-        emit ConfigSale(setSaletype, icbPriceInWei, everyDayIncreasePriceInWei, saleStart, saleEnd, lockMonthTime, vestingMonthTime);
+        emit ConfigSale(setSaletype, icbPriceInWei, everyDayIncreasePriceInWei, saleStart, saleEnd, lockMonths, vestingMonths);
         return true;
     }
    
@@ -660,9 +660,9 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
             icbInDollarSaleWise = icbDollarInPrePublic;
         }
         if(BuyType.eth == buyType){
-            int256 liveprice = getNativePrice() * 10 ** 10;
+            int256 livePrice = getNativePrice() * 10 ** 10;
             uint256 dollarAmount = packageAmount * ICB_DECIMALS * ICB_DECIMALS;
-            uint256 ethInDollar = (dollarAmount) / uint256(liveprice) ;
+            uint256 ethInDollar = (dollarAmount) / uint256(livePrice) ;
             uint256 icbAmount = (packageAmount * ICB_DECIMALS) / icbInDollarSaleWise;
             return (ethInDollar, icbAmount);
         }
@@ -752,13 +752,13 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
         else if (currentSaleType == SaleType.preSale1) {
             uint256 currentPrice = icbDollarInPrePublic;
             uint256 preSaleOneIcb = amount * ICB_DECIMALS / currentPrice;
-            internalDeposit(userAddress, amount, preSaleOneIcb, currentPrice, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Presale one");
+            internalDeposit(userAddress, amount, preSaleOneIcb, currentPrice, block.timestamp, (lockPeriod*30) * 1 days, (vestingPeriod*30) * 1 days, "Presale one");
             _info.totalSoldInPreSaleOne += preSaleOneIcb;
         }
         else if (currentSaleType == SaleType.preSale2) {
             uint256 currentPrice = icbDollarInPrePublic;
             uint256 preSaleTwoIcb = amount * ICB_DECIMALS / currentPrice;
-            internalDeposit(userAddress, amount, preSaleTwoIcb, currentPrice, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Presale two");
+            internalDeposit(userAddress, amount, preSaleTwoIcb, currentPrice, block.timestamp, (lockPeriod*30) * 1 days, (vestingPeriod*30) * 1 days, "Presale two");
             _info.totalSoldInPresaleTwo += preSaleTwoIcb;
         }
         else if (currentSaleType == SaleType.publicSale) {
@@ -768,7 +768,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
             uint256 _bonus = 0;
             if (icbInvestors[referralAddress]) {
                 _commission = (_amountToBuy * REFERRAL_COMMISSION) / 100; //calculating referral 5%
-                internalDeposit(referralAddress, 0, _commission, 0, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Referral");
+                internalDeposit(referralAddress, 0, _commission, 0, block.timestamp, (lockPeriod*30) * 1 days, (vestingPeriod*30) * 1 days, "Referral");
             } 
             if (amount >= 100 && amount <= 500) {
                 _bonus = (_amountToBuy * 1) / 100; // 1%bonus
@@ -782,7 +782,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
                 _bonus = (_amountToBuy * 10) / 100; //10% bonus
             }
             _amountToBuy = (_amountToBuy - _commission) + _bonus;
-            internalDeposit(userAddress, amount, _amountToBuy, currentPrice, block.timestamp, (lockMonths*30) * 1 days, (vestingMonths*30) * 1 days, "Public sale");
+            internalDeposit(userAddress, amount, _amountToBuy, currentPrice, block.timestamp, (lockPeriod*30) * 1 days, (vestingPeriod*30) * 1 days, "Public sale");
             _info.totalSoldInPublicSale  += (_amountToBuy + _commission);
         }
         else {
@@ -826,13 +826,13 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
 
     /// @dev To add the availabe 4 package
     /// @param packageAmount The packageAmount in dollar which user going to buy 
-    /// @param lockMonthTime The lock month for the investment
-    /// @param linearVestingTime The linear vesting month
-    function addPackage(uint256 packageAmount, uint256 icbPerDollar, uint256 lockMonthTime, uint256 linearVestingTime) internal {
+    /// @param lockMonths The lock month for the investment
+    /// @param linearVestings The linear vesting month
+    function addPackage(uint256 packageAmount, uint256 icbPerDollar, uint256 lockMonths, uint256 linearVestings) internal {
         Package storage privateSalePackage = packages[packageAmount];
         privateSalePackage.icbPerDollar = icbPerDollar;
-        privateSalePackage.lockMonthTime = lockMonthTime;
-        privateSalePackage.linearVestingTime = linearVestingTime;
+        privateSalePackage.lockMonthTime = lockMonths;
+        privateSalePackage.linearVestingTime = linearVestings;
     }
 
     function isContract(address account) internal view returns (bool) {
