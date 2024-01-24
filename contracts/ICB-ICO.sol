@@ -534,12 +534,13 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
     /// @param aggregator The native Aggregators from which we will get the live native currency price
     /// @param saleStart The private sale start time
     /// @param saleEnd The private sale end time
-    constructor(address funderWallet, address[] memory allowedTokens, bool isNativeAllowed, address aggregator, uint256 saleStart, uint256 saleEnd) Ownable(msg.sender) validAddress(funderWallet) validAddress(aggregator) {
+    constructor(address funderWallet, address[] memory allowedTokens, bool isNativeAllowed, address aggregator, uint256 saleStart, uint256 saleEnd) Ownable(msg.sender) validAddress(funderWallet) {
         require(saleStart > block.timestamp && saleEnd > saleStart ,"End time must be greater than start time");
         _icoConfig.fundingWallet = funderWallet;
         _icoConfig.tokenAddresses = allowedTokens;
         _icoConfig.isNativeAllowed = isNativeAllowed;
         if (isNativeAllowed) {
+            require(aggregator != address(0), "Invalid aggregator address");
             _icoConfig.ChainLinkAggregator = AggregatorV3Interface(aggregator);
         }
         else{
