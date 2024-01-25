@@ -832,7 +832,7 @@ contract ICB_ICO is ReentrancyGuard, Ownable {
 
     function calculatePerDayIcbDollar() internal  {   
         if(nextDateTimestamp <= block.timestamp) {
-            uint256 daysPassed = (block.timestamp - nextDateTimestamp) / updateInterval;
+            uint256 daysPassed = ((block.timestamp - nextDateTimestamp) / updateInterval) + 1;
             icbDollarInPrePublic = icbDollarInPrePublic + (incrementPriceEveryDay * daysPassed) ;
             getTimestampOfNextDate();
         }
